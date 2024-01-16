@@ -1,5 +1,5 @@
-set -l c complete --command (status filename | path basename | string sub --end=-5)
-# set -l c complete --command cargo-modules
+# set -l c complete --command (status filename | path basename | string sub --end=-5)
+set -l c complete --command cargo-modules
 
 $c -f # Disable file completion
 

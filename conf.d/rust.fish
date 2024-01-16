@@ -126,9 +126,41 @@ abbr -a cgu cargo update
 # cargo thirdparty subcommands
 abbr -a cgbi cargo binstall # `cargo install binstall`
 abbr -a cge cargo expand # `cargo install cargo-expand`
-abbr -a cgw cargo watch # `cargo install cargo-watch`
 abbr -a cgm cargo-modules # `cargo install cargo-modules`
-# TODO: find bins
-abbr -a cgmb cargo-modules structure --bin
+
+function abbr_cargo_modules_structure_bin
+    printf "%s cargo-modules structure --bin %% "
+    if __rust.fish::inside_crate_subtree
+        set -l bins (__get_cargo_bins)
+        set -l n_bins (count $bins)
+        switch $n_bins
+            case 0
+                printf "# no binaries found, probably in a --lib crate"
+            case 1
+                printf "# 1 binary found: %s" $bins[1]
+            case '*'
+                printf "# %d binaries found: %s" $n_bins (string join ", " -- $bins)
+        end
+
+    else
+        printf "# YOU ARE NOT INSIDE A CARGO PROJECT!"
+    end
+
+    printf "\n"
+end
+# abbr -a cgmb cargo-modules structure --bin
+abbr -a cgmb --set-cursor --function abbr_cargo_modules_structure_bin
 abbr -a cgml cargo-modules structure --lib
 abbr -a cgmo cargo-modules orphans
+
+abbr -a cgw cargo watch # `cargo install cargo-watch`
+# set -l cargo_watch_flags --why --postpone --clear --notify
+set -l cargo_watch_flags
+set -a cargo_watch_flags --why # show paths that changed
+set -a cargo_watch_flags --postpone # postpone first run until a file changes
+set -a cargo_watch_flags --clear # clear the screen before each run
+set -a cargo_watch_flags --notify # send desktop notification when watchexec notices a change
+# set -a cargo_watch_flags -L=info # inject RUST_LOG=info into the environment
+
+abbr -a cgwc cargo watch $cargo_watch_flags --exec check
+abbr -a cgwt cargo watch $cargo_watch_flags --exec test
