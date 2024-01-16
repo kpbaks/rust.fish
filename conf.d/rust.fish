@@ -12,6 +12,11 @@ end
 
 if not test -d ~/.cargo/bin
     # TODO:
+    # set -l reset (set_color normal)
+    # set -l red (set_color red)
+    # set -l yellow (set_color yellow)
+    # printf "rust.fish %swarning:%s %s%s%s does not exist"
+    # https://www.rust-lang.org/learn/get-started
 else
     if not contains -- ~/.cargo/bin $PATH
         fish_add_path ~/.cargo/bin
@@ -164,3 +169,27 @@ set -a cargo_watch_flags --notify # send desktop notification when watchexec not
 
 abbr -a cgwc cargo watch $cargo_watch_flags --exec check
 abbr -a cgwt cargo watch $cargo_watch_flags --exec test
+
+
+# completions
+set -l c complete -c cargo
+
+function __complete_crates.io
+    set -l limit 20
+    test 1 -gt $limit -a $limit -le 100; or return 1 # Limit imposed by crates.io
+    set -l query (commandline --current-token)
+    test -n $query; or return 0 # Nothing to search for
+    test (string sub --length=1 -- $query) = -; and return 0 # The token at the cursor is a some kind of option. `cargo search` will be confused by that
+
+    set -l regexp (printf "^(%s[\w_-]+) = \"(\d+\.\d+\.\d+)\"\s+#\s(.+)\$" $query)
+
+    command cargo search --limit=$limit $query \
+        | string match --regex --groups-only -- $regexp \
+        | while read --line crate_name crate_version desc
+        printf "%s\t(%s) %s\n" $crate_name $crate_version $desc
+        # printf "%s\t%s\n" $crate_name $desc
+    end
+end
+
+$c -n "__fish_seen_subcommand_from add" -a "(__complete_crates.io)"
+$c -n "__fish_seen_subcommand_from search" -a "(__complete_crates.io)"
