@@ -10,6 +10,22 @@
 #     # Erase "private" functions, variables, bindings, and other uninstall logic.
 # end
 
+set -l reset (set_color normal)
+set -l red (set_color red)
+set -l yellow (set_color yellow)
+set -l green (set_color green)
+
+if not set --query CARGO_HOME
+    printf "%srust.fish%s %swarning%s: %sCARGO_HOME%s is not set\n" $yellow $reset $red $reset $yellow $reset
+    if test -d ~/.cargo
+        printf "%sCARGO_HOME%s will be set to %s~/.cargo%s\n" $yellow $reset $green $reset
+        set -gx CARGO_HOME ~/.cargo
+    else
+        printf "are you sure you have rust installed?\n"
+        return 0
+    end
+end
+
 if not test -d ~/.cargo/bin
     # TODO:
     # set -l reset (set_color normal)
@@ -100,6 +116,7 @@ abbr -a cgbr cargo build --jobs "(math (nproc) - 1)" --release
 abbr -a cgc cargo check
 abbr -a cgd cargo doc --open
 abbr -a cgi cargo install --jobs "(math (nproc) - 1)"
+abbr -a cgil cargo install --jobs "(math (nproc) - 1)" --locked
 function abbr_cargo_metadata
     printf "cargo metadata --format-version=1"
     if command --query fx

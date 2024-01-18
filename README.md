@@ -18,6 +18,7 @@ abbr -a cgbr cargo build --jobs "(math (nproc) - 1)" --release
 abbr -a cgc cargo check
 abbr -a cgd cargo doc --open
 abbr -a cgi cargo install --jobs "(math (nproc) - 1)"
+abbr -a cgil cargo install --jobs "(math (nproc) - 1)" --locked
 abbr -a cgmt --set-cursor --function abbr_cargo_metadata
 abbr -a cgr --function abbr_cargo_run
 abbr -a cgrb --set-cursor --function abbr_cargo_run_bin

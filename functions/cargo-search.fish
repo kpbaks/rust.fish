@@ -1,4 +1,4 @@
-function cargo-search -d "wrapper around `cargo search`"
+function cargo-search -d "Wrapper around `cargo search`"
     set -l options h/help l/limit=
     if not argparse $options -- $argv
         eval (status function) --help
@@ -19,7 +19,7 @@ function cargo-search -d "wrapper around `cargo search`"
     set -l default_limit 10
 
     if set --query _flag_help
-        printf "%swrapper around %s%s\n" $bold (printf (echo "cargo search" | fish_indent --ansi)) $reset >&2
+        printf "%sWrapper around %s%s\n" $bold (printf (echo "cargo search" | fish_indent --ansi)) $reset >&2
         printf "\n" >&2
         printf "%sUSAGE%s:\n" $yellow $reset >&2
         printf "\t%s%s%s [%s--limit%s] <limit:%sint%s> <query:%sstr%s>\n" (set_color $fish_color_command) (status function) $reset (set_color $fish_color_option) $reset $cyan $reset (set_color $fish_color_quote) $reset >&2
@@ -31,6 +31,8 @@ function cargo-search -d "wrapper around `cargo search`"
         printf "%sEXAMPLES%s:\n" $yellow $reset >&2
         printf "\t%s%s\n" (printf (echo "$(status function) --limit 5 regex" | fish_indent --ansi)) $reset >&2
 
+        printf "\n" >&2
+        __rust.fish::help_footer >&2
         return 0
     end
 
