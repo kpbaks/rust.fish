@@ -1,14 +1,14 @@
-function _rust_install --on-event _rust_install
-    # Set universal variables, create bindings, and other initialization logic.
-end
+# function _rust_install --on-event _rust_install
+#     # Set universal variables, create bindings, and other initialization logic.
+# end
 
-function _rust_update --on-event _rust_update
-    # Migrate resources, print warnings, and other update logic.
-end
+# function _rust_update --on-event _rust_update
+#     # Migrate resources, print warnings, and other update logic.
+# end
 
-function _rust_uninstall --on-event _rust_uninstall
-    # Erase "private" functions, variables, bindings, and other uninstall logic.
-end
+# function _rust_uninstall --on-event _rust_uninstall
+#     # Erase "private" functions, variables, bindings, and other uninstall logic.
+# end
 
 if not test -d ~/.cargo/bin
     # TODO:
@@ -52,89 +52,26 @@ function __get_cargo_examples
     command cargo run --example 2>&1 | string replace --regex --filter '^\s+' ''
 end
 
-function __rust.fish::abbreviations
+function __rust.fish::abbreviations -d "list all abbreviations in rust.fish"
     string match --regex "^abbr -a.*" <(status filename) | fish_indent --ansi
 end
 
-# abbreviations
-
-# cargo
-abbr -a cg cargo
-abbr -a cga cargo add
-abbr -a cgad cargo add --dev
-abbr -a cgb cargo build --jobs "(math (nproc) - 1)"
-abbr -a cgbr cargo build --jobs "(math (nproc) - 1)" --release
-abbr -a cgc cargo check
-abbr -a cgd cargo doc --open
-abbr -a cgi cargo install --jobs "(math (nproc) - 1)"
-abbr -a cgr RUST_LOG=info RUST_BACKTRACE=0 cargo run --jobs "(math (nproc) - 1)"
-
-function abbr_cargo_run_bin
-    set -l bins (__get_cargo_bins)
-    # Check if RUST_LOG or RUST_BACKTRACE has already ben set, before adding temporary default
+function __rust.fish::abbr::env_var_overrides
     set -l env_var_overrides
-    set --query RUST_LOG; or set --append env_var_overrides "RUST_LOG=info"
-    set --query RUST_BACKTRACE; or set --append env_var_overrides "RUST_BACKTRACE=0"
-
-    printf "%s cargo run --jobs (math (nproc) - 1) --bin %% " (string join " " -- $env_var_overrides)
-    if __rust.fish::inside_crate_subtree
-        set -l n_bins (count $bins)
-        switch $n_bins
-            case 0
-                printf "# no binaries found, probably in a --lib crate"
-            case 1
-                printf "# 1 binary found: %s" $bins[1]
-            case '*'
-                printf "# %d binaries found: %s" $n_bins (string join ", " -- $bins)
-        end
-
-    else
-        printf "# YOU ARE NOT INSIDE A CARGO PROJECT!"
+    set -l buffer (commandline)
+    if not string match --regex --quiet "RUST_LOG=\w+" -- $buffer
+        # commandline does not contain RUST_LOG as a temporary env var override
+        # if it is already exported as a env var, then add it with the default value of "info"
+        set --query RUST_LOG; or set --append env_var_overrides "RUST_LOG=info"
+    end
+    if not string match --regex --quiet "RUST_BACKTRACE=\d+" -- $buffer
+        set --query RUST_BACKTRACE; or set --append env_var_overrides "RUST_BACKTRACE=0"
     end
 
-    printf "\n"
+    printf "%s\n" $env_var_overrides
 end
-abbr -a cgrb --set-cursor --function abbr_cargo_run_bin
-abbr -a cgrr RUST_LOG=info RUST_BACKTRACE=0 cargo run --jobs "(math (nproc) - 1)" --release
 
-function abbr_cargo_run_release_bin
-    set -l bins (__get_cargo_bins)
-    # Check if RUST_LOG or RUST_BACKTRACE has already ben set, before adding temporary default
-    set -l env_var_overrides
-    set --query RUST_LOG; or set --append env_var_overrides "RUST_LOG=info"
-    set --query RUST_BACKTRACE; or set --append env_var_overrides "RUST_BACKTRACE=0"
-
-    printf "%s cargo run --jobs (math (nproc) - 1) --release --bin %% " (string join " " -- $env_var_overrides)
-    if __rust.fish::inside_crate_subtree
-        set -l n_bins (count $bins)
-        switch $n_bins
-            case 0
-                printf "# no binaries found, probably in a --lib crate"
-            case 1
-                printf "# 1 binary found: %s" $bins[1]
-            case '*'
-                printf "# %d binaries found: %s" $n_bins (string join ", " -- $bins)
-        end
-
-    else
-        printf "# YOU ARE NOT INSIDE A CARGO PROJECT!"
-    end
-
-    printf "\n"
-end
-abbr -a cgrrb --set-cursor --function abbr_cargo_run_release_bin
-
-abbr -a cgs cargo search --limit=10
-abbr -a cgt cargo test
-abbr -a cgu cargo update
-
-# cargo thirdparty subcommands
-abbr -a cgbi cargo binstall # `cargo install binstall`
-abbr -a cge cargo expand # `cargo install cargo-expand`
-abbr -a cgm cargo-modules # `cargo install cargo-modules`
-
-function abbr_cargo_modules_structure_bin
-    printf "%s cargo-modules structure --bin %% "
+function __rust.fish::abbr::bin_postfix
     if __rust.fish::inside_crate_subtree
         set -l bins (__get_cargo_bins)
         set -l n_bins (count $bins)
@@ -150,6 +87,70 @@ function abbr_cargo_modules_structure_bin
     else
         printf "# YOU ARE NOT INSIDE A CARGO PROJECT!"
     end
+end
+
+# abbreviations
+
+# cargo
+abbr -a cg cargo
+abbr -a cga cargo add
+abbr -a cgad cargo add --dev
+abbr -a cgb cargo build --jobs "(math (nproc) - 1)"
+abbr -a cgbr cargo build --jobs "(math (nproc) - 1)" --release
+abbr -a cgc cargo check
+abbr -a cgd cargo doc --open
+abbr -a cgi cargo install --jobs "(math (nproc) - 1)"
+function abbr_cargo_metadata
+    printf "cargo metadata --format-version=1"
+    if command --query fx
+        printf "| fx"
+    else if command --query jaq
+        printf "| jaq '.%%'"
+    else if command --query jq
+        printf "| jq '.%%'"
+    end
+    printf "\n"
+end
+
+abbr -a cgmt --set-cursor --function abbr_cargo_metadata
+
+function abbr_cargo_run
+    printf "%s cargo run --jobs (math (nproc) - 1)" (string join " " -- (__rust.fish::abbr::env_var_overrides))
+end
+abbr -a cgr --function abbr_cargo_run
+
+function abbr_cargo_run_bin
+    printf "%s cargo run --jobs (math (nproc) - 1) --bin %% " (string join " " -- (__rust.fish::abbr::env_var_overrides))
+    __rust.fish::abbr::bin_postfix
+    printf "\n"
+end
+abbr -a cgrb --set-cursor --function abbr_cargo_run_bin
+
+function abbr_cargo_run_release
+    printf "%s cargo run --jobs (math (nproc) - 1) --release" (string join " " -- (__rust.fish::abbr::env_var_overrides))
+end
+abbr -a cgrr --function abbr_cargo_run_release
+
+function abbr_cargo_run_release_bin
+    printf "%s cargo run --jobs (math (nproc) - 1) --release --bin %% " (string join " " -- (__rust.fish::abbr::env_var_overrides))
+    __rust.fish::abbr::bin_postfix
+    printf "\n"
+end
+abbr -a cgrrb --set-cursor --function abbr_cargo_run_release_bin
+
+# abbr -a cgs cargo search --limit=10
+abbr -a cgs cargo-search --limit=10
+abbr -a cgt cargo test
+abbr -a cgu cargo update
+
+# cargo thirdparty subcommands
+abbr -a cgbi cargo binstall # `cargo install binstall`
+abbr -a cge cargo expand # `cargo install cargo-expand`
+abbr -a cgm cargo-modules # `cargo install cargo-modules`
+
+function abbr_cargo_modules_structure_bin
+    printf "cargo-modules structure --bin %% "
+    __rust.fish::abbr::bin_postfix
 
     printf "\n"
 end
@@ -170,6 +171,10 @@ set -a cargo_watch_flags --notify # send desktop notification when watchexec not
 abbr -a cgwc cargo watch $cargo_watch_flags --exec check
 abbr -a cgwt cargo watch $cargo_watch_flags --exec test
 
+# rustfmt
+set -l rust_edition 2021
+abbr -a rfmt rustfmt --edition=$rust_edition
+abbr -a rfmtc rustfmt --edition=$rust_edition --check
 
 # completions
 set -l c complete -c cargo
