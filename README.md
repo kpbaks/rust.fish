@@ -28,8 +28,7 @@ abbr -a cgt cargo test
 abbr -a cgu cargo update
 abbr -a cgbi cargo binstall # `cargo install binstall`
 abbr -a cge cargo expand # `cargo install cargo-expand`
-abbr -a cgm cargo-modules # `cargo ins
-tall cargo-modules`
+abbr -a cgm cargo-modules # `cargo install cargo-modules`
 abbr -a cgmb --set-cursor --function abbr_cargo_modules_structure_bin
 abbr -a cgml cargo-modules structure --lib
 abbr -a cgmo cargo-modules orphans
