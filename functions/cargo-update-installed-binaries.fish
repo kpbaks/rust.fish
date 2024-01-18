@@ -1,5 +1,6 @@
 function cargo-update-installed-binaries -d "Update all installed cargo binaries in $CARGO_HOME/bin"
     # TODO: what about https://github.com/nabijaczleweli/cargo-update
+    # TODO: implement --check
     set -l options h/help v/verbose d/dry-run l/list c/check
     if not argparse $options -- $argv
         eval (status function) --help
@@ -8,6 +9,7 @@ function cargo-update-installed-binaries -d "Update all installed cargo binaries
 
     set -l reset (set_color normal)
     set -l bold (set_color --bold)
+    set -l italics (set_color --italics)
     set -l red (set_color red)
     set -l green (set_color green)
     set -l yellow (set_color yellow)
@@ -25,6 +27,10 @@ function cargo-update-installed-binaries -d "Update all installed cargo binaries
         printf "\t%s-d%s, %s--dry-run%s\t\tdon't run the command (implies --verbose)\n" $option_color $reset $option_color $reset >&2
         printf "\t%s-l%s, %s--list%s\t\tlist installed cargo binaries\n" $option_color $reset $option_color $reset >&2
         printf "\n" >&2
+        # TODO: check if jq is installed, and color the link accordingly
+        printf "%sDEPENDENCIES%s:\n" $yellow $reset >&2
+        printf "\t%sjq%s %s%s%s\n" (set_color $fish_color_command) $reset $italics https://github.com/jqlang/jq $reset >&2
+        printf "\n" >&2
         __rust.fish::help_footer >&2
         return 0
     end
@@ -34,6 +40,10 @@ function cargo-update-installed-binaries -d "Update all installed cargo binaries
     set -l crates2_path $CARGO_HOME/.crates2.json
     if not test -f $crates2_path
         printf "%serror%s: %s not found\n" $red $reset $crates2_path >&2
+        return 1
+    end
+    if not command --query jq
+        printf "%serror%s: %sjq%s not found, see %shttps://github.com/jqlang/jq%s for how to install\n" $red $reset (set_color $fish_color_command) $reset $italics $reset >&2
         return 1
     end
     set -l cargo_binaries (command jq '.installs | keys[] | split(" ")[0]' < $crates2_path)

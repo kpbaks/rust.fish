@@ -155,10 +155,30 @@ function abbr_cargo_run_release_bin
 end
 abbr -a cgrrb --set-cursor --function abbr_cargo_run_release_bin
 
-# abbr -a cgs cargo search --limit=10
 abbr -a cgs cargo-search --limit=10
 abbr -a cgt cargo test
 abbr -a cgu cargo update
+function abbr_cargo_update_package
+    printf "cargo update --package %%\n"
+    if test -f Cargo.toml
+        set -l dependencies (command taplo get ".dependencies" --output-format toml < Cargo.toml)
+        set -l dev_dependencies (command taplo get ".dev-dependencies" --output-format toml < Cargo.toml)
+        # TODO: align by "="
+        if test (count $dependencies) -gt 0
+            # TODO: handle case where crate is of the form: "<name> = { version = <version> ... }"
+            printf "# dependencies:\n"
+            printf "# - %s\n" $dependencies
+        end
+        if test (count $dev_dependencies) -gt 0
+            printf "#\n"
+            printf "# dev-dependencies:\n"
+            printf "# - %s\n" $dev_dependencies
+        end
+    end
+end
+abbr -a cgup cargo update --package
+abbr -a cgup --set-cursor --function abbr_cargo_update_package
+abbr -a cgud cargo update --dry-run
 
 # cargo thirdparty subcommands
 abbr -a cgbi cargo binstall # `cargo install binstall`

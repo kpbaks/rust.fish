@@ -65,7 +65,6 @@ function cargo-search -d "Wrapper around `cargo search`"
     end
 
     # set --local --long | scope
-    # TODO: check if each crate is already a dependency in the Cargo.toml
 
     if not test -f Cargo.toml
         begin
@@ -87,7 +86,7 @@ function cargo-search -d "Wrapper around `cargo search`"
 
     set -l dependencies_already_added
     set -l dependencies_that_can_be_updated
-    if command --query taplot
+    if command --query taplo
         # printf "taplo found\n"
         set -l dependencies (command taplo get ".dependencies" --output-format toml < Cargo.toml)
         set -l dev_dependencies (command taplo get ".dev-dependencies" --output-format toml < Cargo.toml)
