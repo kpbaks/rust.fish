@@ -7,7 +7,7 @@ fisher install kpbaks/rust.fish
 
 ## Abbreviations
 
-<!-- use `__rust.fish::abbreviations` to list all abbreviations -->
+<!-- use `__rust.fish::abbr::list` to list all abbreviations -->
 
 ```fish
 abbr -a cg cargo
@@ -59,4 +59,3 @@ A wrapper around `cargo search` that displays the results in a table. With the o
 `cargo add` and `cargo search` have been enhanced such that they complete the crate names from crates.io.
 
 ![image](https://github.com/kpbaks/rust.fish/assets/57013304/d31e767b-0624-4099-b372-e21f531693ff)
-

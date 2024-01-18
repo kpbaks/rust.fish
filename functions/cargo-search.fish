@@ -1,6 +1,5 @@
 function cargo-search -d "wrapper around `cargo search`"
     set -l options h/help l/limit=
-    # set -a options (fish_opt --short=l --long=limit --optional-val)
     if not argparse $options -- $argv
         eval (status function) --help
         return 2
@@ -13,6 +12,7 @@ function cargo-search -d "wrapper around `cargo search`"
     set -l yellow (set_color yellow)
     set -l blue (set_color blue)
     set -l cyan (set_color cyan)
+    set -l magenta (set_color magenta)
     set -l bold (set_color --bold)
     set -l italics (set_color --italics)
     set -l crates_url https://crates.io/crates
@@ -69,9 +69,9 @@ function cargo-search -d "wrapper around `cargo search`"
         begin
             # printf "name%sversion%sdescription\n" $delimiter $delimiter
             for i in (seq (count $crate_names))
-                printf "%s%d%s" $yellow $i $reset
+                printf "%s%d%s" $magenta $i $reset
                 printf "%s" $delimiter
-                printf "%%s/%s" (set_color --dim) $crates_url $reset
+                printf "%s%s/%s" (set_color --dim) $crates_url $reset
                 printf "%s%s%s" $green $crate_names[$i] $reset
                 printf "%s" $delimiter
                 printf "%s%s%s" $blue $crate_versions[$i] $reset
@@ -83,21 +83,87 @@ function cargo-search -d "wrapper around `cargo search`"
         return 0
     end
 
-    begin
-    # printf "name%sversion%sdescription\n" $delimiter $delimiter
-        for i in (seq (count $crate_names))
-            printf "%s%d%s" $yellow $i $reset
-            printf "%s" $delimiter
-            printf "%%s/%s" (set_color --dim) $crates_url $reset
-            printf "%s%s%s" $green $crate_names[$i] $reset
-            printf "%s" $delimiter
-            printf "%s%s%s" $blue $crate_versions[$i] $reset
-            printf "%s" $delimiter
-            printf "%s%s%s" $italics "$crate_descriptions[$i]" $reset
-            printf "\n"
-        end
-    end | command column --table --separator=$delimiter --output-separator=" $bar "
+    set -l dependencies_already_added
+    set -l dependencies_that_can_be_updated
+    if command --query taplot
+        # printf "taplo found\n"
+        set -l dependencies (command taplo get ".dependencies" --output-format toml < Cargo.toml)
+        set -l dev_dependencies (command taplo get ".dev-dependencies" --output-format toml < Cargo.toml)
+        begin
+            # printf "name%sversion%sdescription\n" $delimiter $delimiter
+            for i in (seq (count $crate_names))
+                printf "%s%d%s" $magenta $i $reset
+                printf "%s" $delimiter
+                printf "%s%s/%s" (set_color --dim) $crates_url $reset
+                printf "%s%s%s" $green $crate_names[$i] $reset
+                printf "%s" $delimiter
+                printf "%s%s%s" $blue $crate_versions[$i] $reset
+                printf "%s" $delimiter
 
+                # Check if the crate is already a dependency
+                # Check if the crate is already a dev dependency
+                set -l dependency_color $green
+                set -l dependency_version ""
+                set -l dependency_icon " "
+                for dep in $dependencies $dev_dependencies
+                    if string match --regex --groups-only "^(\S+) = \"(.+)\"\$" -- $dep | read --line name _version
+                        if test $name = $crate_names[$i]
+                            set dependency_version $_version
+                            if test $_version = $crate_versions[$i] -o $_version = "*"
+                                set dependency_color $blue
+                                set dependency_icon ✅
+                                set --append dependencies_already_added $name
+                            else
+                                set dependency_color $yellow
+                                # set dependency_icon ⚠️
+                                # set dependency_icon 🐶
+                                set dependency_icon ❗
+                                set --append dependencies_that_can_be_updated $name
+                            end
+                            break
+                        end
+                    else if string match --regex --groups-only "^(\S+) = {.*version = \"([^\"]+)\".*" -- $dep | read --line name _version
+                        if test $name = $crate_names[$i]
+                            set dependency_version $_version
+                            if test $_version = $crate_versions[$i] -o $_version = "*"
+                                set dependency_color $blue
+                                set dependency_icon ✅
+                                set --append dependencies_already_added $name
+                            else
+                                set dependency_color $yellow
+                                # set dependency_icon ⚠️
+                                # set dependency_icon 🐶
+                                set dependency_icon ❗
+                                set --append dependencies_that_can_be_updated $name
+                            end
+                            break
+                        end
+                    end
+                end
+
+                printf "%s%s%s%s" $dependency_color $dependency_version $reset $dependency_icon
+                printf "%s" $delimiter
+
+                printf "%s%s%s" $italics "$crate_descriptions[$i]" $reset
+                printf "\n"
+            end
+        end | command column --table --separator=$delimiter --output-separator=" $bar "
+    else
+        begin
+            # printf "name%sversion%sdescription\n" $delimiter $delimiter
+            for i in (seq (count $crate_names))
+                printf "%s%d%s" $magenta $i $reset
+                printf "%s" $delimiter
+                printf "%s%s/%s" (set_color --dim) $crates_url $reset
+                printf "%s%s%s" $green $crate_names[$i] $reset
+                printf "%s" $delimiter
+                printf "%s%s%s" $blue $crate_versions[$i] $reset
+                printf "%s" $delimiter
+                printf "%s%s%s" $italics "$crate_descriptions[$i]" $reset
+                printf "\n"
+            end
+        end | command column --table --separator=$delimiter --output-separator=" $bar "
+    end
 
     printf "\n"
     printf "%shint%s: use %s%s to add %slibrary%s as a dependency.\n" $cyan $reset (printf (echo "cargo add library" | fish_indent --ansi)) $reset $green $reset
@@ -106,7 +172,22 @@ function cargo-search -d "wrapper around `cargo search`"
         abbr --add cga$i cargo add $crate_names[$i]
         abbr --add cgad$i cargo add --dev $crate_names[$i]
     end
-    printf "%shint%s: use abbreviation %scga{,d}1..=%d%s to add the %si'th%s library to your %sCargo.toml%s project.\n" $cyan $reset (set_color $fish_color_command) (count $crate_names) $reset $yellow $reset (set_color --bold) $reset
+    printf "%shint%s: use abbreviation %scga{,d}1..=%d%s to add the %si'th%s library to your %sCargo.toml%s project.\n" $cyan $reset (set_color $fish_color_command) (count $crate_names) $reset $magenta $reset (set_color --bold) $reset
+
+    if test (count $dependencies_already_added) -gt 0
+        # printf "\n"
+        printf "these crates are already dependencies, and are up to date:\n"
+        for dep in $dependencies_already_added
+            printf " - %s%s%s\n" $green $dep $reset
+        end
+    end
+    if test (count $dependencies_that_can_be_updated) -gt 0
+        # printf "\n"
+        printf "%shint%s: these crates can be updated:\n" $cyan $reset
+        for dep in $dependencies_that_can_be_updated
+            printf " - %s%s%s\n" $yellow $dep $reset
+        end
+    end
 
     # begin
     #     echo name

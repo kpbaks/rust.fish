@@ -52,7 +52,7 @@ function __get_cargo_examples
     command cargo run --example 2>&1 | string replace --regex --filter '^\s+' ''
 end
 
-function __rust.fish::abbreviations -d "list all abbreviations in rust.fish"
+function __rust.fish::abbr::list -d "list all abbreviations in rust.fish"
     string match --regex "^abbr -a.*" <(status filename) | fish_indent --ansi
 end
 
