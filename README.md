@@ -44,3 +44,14 @@ set -l rust_edition 2021
 abbr -a rfmt rustfmt --edition=$rust_edition
 abbr -a rfmtc rustfmt --edition=$rust_edition --check
 ```
+
+## Functions
+
+### `cargo-search`
+
+A wrapper around `cargo search` that displays the results in a table. With the option to easily add any of the crates to the current project.
+
+
+## Completions
+
+`cargo add` and `cargo search` have been enhanced such that they complete the crate names from crates.io.
