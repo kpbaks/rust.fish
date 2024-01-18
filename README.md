@@ -28,7 +28,8 @@ abbr -a cgt cargo test
 abbr -a cgu cargo update
 abbr -a cgbi cargo binstall # `cargo install binstall`
 abbr -a cge cargo expand # `cargo install cargo-expand`
-abbr -a cgm cargo-modules # `cargo install cargo-modules`
+abbr -a cgm cargo-modules # `cargo ins
+tall cargo-modules`
 abbr -a cgmb --set-cursor --function abbr_cargo_modules_structure_bin
 abbr -a cgml cargo-modules structure --lib
 abbr -a cgmo cargo-modules orphans
@@ -50,8 +51,13 @@ abbr -a rfmtc rustfmt --edition=$rust_edition --check
 ### `cargo-search`
 
 A wrapper around `cargo search` that displays the results in a table. With the option to easily add any of the crates to the current project.
+![image](https://github.com/kpbaks/rust.fish/assets/57013304/310d42b1-40a6-4a1c-8f43-e187a8697d2d)
+
 
 
 ## Completions
 
 `cargo add` and `cargo search` have been enhanced such that they complete the crate names from crates.io.
+
+![image](https://github.com/kpbaks/rust.fish/assets/57013304/d31e767b-0624-4099-b372-e21f531693ff)
+
