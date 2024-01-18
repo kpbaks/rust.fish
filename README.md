@@ -50,8 +50,13 @@ abbr -a rfmtc rustfmt --edition=$rust_edition --check
 ### `cargo-search`
 
 A wrapper around `cargo search` that displays the results in a table. With the option to easily add any of the crates to the current project.
-![image](https://github.com/kpbaks/rust.fish/assets/57013304/310d42b1-40a6-4a1c-8f43-e187a8697d2d)
+![image](https://github.com/kpbaks/rust.fish/assets/57013304/05cb0b42-c803-4b8e-9757-5d8c2bb6876b)
 
+If you have [taplo](https://taplo.tamasfe.dev/) `cargo-search` will additionally check the search results against your
+`[dependencies]` and `[dev-dependencies]` in `$PWD/Cargo.toml` (if it exist) to see if you already have any of them added,
+or if some of them can be updated to a newer version.
+
+![image](https://github.com/kpbaks/rust.fish/assets/57013304/0d29e9de-59f6-441e-b84b-980515a992e0)
 
 
 ## Completions
