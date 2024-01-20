@@ -172,8 +172,9 @@ function cargo-search -d "Wrapper around `cargo search`"
     for i in (seq (count $crate_names))
         abbr --add cga$i cargo add $crate_names[$i]
         abbr --add cgad$i cargo add --dev $crate_names[$i]
+        abbr --add cgab$i cargo add --dev $crate_names[$i]
     end
-    printf "%shint%s: use abbreviation %scga{,d}1..=%d%s to add the %si'th%s library to your %sCargo.toml%s project.\n" $cyan $reset (set_color $fish_color_command) (count $crate_names) $reset $magenta $reset (set_color --bold) $reset
+    printf "%shint%s: use abbreviation %scga{,b,d}1..=%d%s to add the %si'th%s library to your %sCargo.toml%s project.\n" $cyan $reset (set_color $fish_color_command) (count $crate_names) $reset $magenta $reset (set_color --bold) $reset
 
     if test (count $dependencies_already_added) -gt 0
         # printf "\n"
