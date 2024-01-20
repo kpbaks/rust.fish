@@ -73,6 +73,7 @@ function __rust.fish::abbr::list -d "list all abbreviations in rust.fish"
 end
 
 function __rust.fish::abbr::env_var_overrides
+    # TODO: what about RUSTFLAGS https://github.com/rust-lang/portable-simd/blob/master/beginners-guide.md#selecting-additional-target-features
     set -l env_var_overrides
     set -l buffer (commandline)
     if not string match --regex --quiet "RUST_LOG=\w+" -- $buffer
@@ -111,12 +112,34 @@ end
 abbr -a cg cargo
 abbr -a cga cargo add
 abbr -a cgad cargo add --dev
+abbr -a cgab cargo add --build
 abbr -a cgb cargo build --jobs "(math (nproc) - 1)"
 abbr -a cgbr cargo build --jobs "(math (nproc) - 1)" --release
 abbr -a cgc cargo check
 abbr -a cgd cargo doc --open
-abbr -a cgi cargo install --jobs "(math (nproc) - 1)"
-abbr -a cgil cargo install --jobs "(math (nproc) - 1)" --locked
+function abbr_cargo_install
+    printf "cargo install --jobs (math (nproc) - 1)"
+    set -l clipboard (fish_clipboard_paste)
+    if string match --regex --quiet "https://git(hub|lab)\.com/\w+/\w+" -- $clipboard
+        # Check if clipboard contains a git url, e.g. "https://github.com/Doctave/doctave"
+        # If it does then expand `cgi` -> `cargo install --git "https://github.com/Doctave/doctave"`
+        printf " --git %s%%" (string trim $clipboard)
+    end
+    printf "\n"
+end
+
+function abbr_cargo_install_locked
+    printf "cargo install --jobs (math (nproc) - 1) --locked"
+    set -l clipboard (fish_clipboard_paste)
+    if string match --regex --quiet "https://git(hub|lab)\.com/\w+/\w+" -- $clipboard
+        printf " --git %s%%" (string trim $clipboard)
+    end
+    printf "\n"
+end
+# abbr -a cgi cargo install --jobs "(math (nproc) - 1)"
+abbr -a cgi --set-cursor --function abbr_cargo_install
+abbr -a cgil --set-cursor --function abbr_cargo_install_locked
+# abbr -a cgil cargo install --jobs "(math (nproc) - 1)" --locked
 function abbr_cargo_metadata
     printf "cargo metadata --format-version=1"
     if command --query fx
@@ -213,6 +236,18 @@ set -l rust_edition 2021
 abbr -a rfmt rustfmt --edition=$rust_edition
 abbr -a rfmtc rustfmt --edition=$rust_edition --check
 
+# rustup
+abbr -a rup rustup
+abbr -a rupu rustup update
+function __rust.fish::rustup::installed_toolchains
+    command rustup toolchain list | string split --fields=1 " "
+end
+
+abbr -a rupr rustup run # toolchain
+
+# bacon
+abbr -a bac bacon
+
 # completions
 set -l c complete -c cargo
 
@@ -238,5 +273,13 @@ function __complete_crates.io
     end
 end
 
-$c -n "__fish_seen_subcommand_from add" -a "(__complete_crates.io)"
-$c -n "__fish_seen_subcommand_from search" -a "(__complete_crates.io)"
+complete -c cargo -n "__fish_seen_subcommand_from add" -a "(__complete_crates.io)"
+complete -c cargo -n "__fish_seen_subcommand_from search" -a "(__complete_crates.io)"
+
+# function complete_condition_rustup_run
+#     set -l buffer (commandline --current-process --cut-at-cursor)
+#     string match --quiet "rustup run" -- $buffer
+#     # test "$buffer" = "rustup run"
+# end
+
+# complete -c rustup -n complete_condition_rustup_run -a hahaha
