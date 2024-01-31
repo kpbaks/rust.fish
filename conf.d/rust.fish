@@ -1,15 +1,16 @@
-# function _rust_install --on-event _rust_install
-#     # Set universal variables, create bindings, and other initialization logic.
-# end
+function __rust.fish::on::install --on-event rust_install
+    # Set universal variables, create bindings, and other initialization logic.
+end
 
-# function _rust_update --on-event _rust_update
-#     # Migrate resources, print warnings, and other update logic.
-# end
+function __rust.fish::on::update --on-event rust_update
+    # Migrate resources, print warnings, and other update logic.
+end
 
-# function _rust_uninstall --on-event _rust_uninstall
-#     # Erase "private" functions, variables, bindings, and other uninstall logic.
-# end
+function __rust.fish::on::uninstall --on-event rust_uninstall
+    # Erase "private" functions, variables, bindings, and other uninstall logic.
+end
 
+set -l rust_edition 2021
 set -l reset (set_color normal)
 set -l red (set_color red)
 set -l yellow (set_color yellow)
@@ -58,12 +59,34 @@ function __rust.fish::inside_crate_subtree
     __rust.fish::find_crate_root_dir >/dev/null
 end
 
-function __get_cargo_bins
-    command cargo run --bin 2>&1 | string replace --regex --filter '^\s+' ''
-    # if __rust.fish::find_crate_root_dir | read root_dir
-
-    # end
+function __rust.fish::cargo::get_tests -a target
+    set -l expr "command cargo test $target -- --list --format=terse 2>/dev/null | sort --unique | string split --fields=1 ': '"
+    set --query RUST_FISH_DEBUG; and echo $expr | fish_indent --ansi >&2
+    eval $expr
 end
+
+function __rust.fish::cargo::get_lib_tests
+    __rust.fish::cargo::get_tests --lib
+end
+
+function __rust.fish::cargo::get_examples_tests
+    __rust.fish::cargo::get_tests --examples
+end
+
+function __rust.fish::cargo::get_bins_tests
+    __rust.fish::cargo::get_tests --bins
+end
+
+function __rust.fish::cargo::get_benches_tests
+    __rust.fish::cargo::get_tests --benches
+end
+
+function __get_cargo_bins
+    set -l expr "command cargo run --bin 2>&1 | string replace --regex --filter '^\s+' ''"
+    set --query RUST_FISH_DEBUG; and echo $expr | fish_indent --ansi >&2
+    eval $expr
+end
+
 function __get_cargo_examples
     command cargo run --example 2>&1 | string replace --regex --filter '^\s+' ''
 end
@@ -154,6 +177,10 @@ end
 
 abbr -a cgmt --set-cursor --function abbr_cargo_metadata
 
+abbr -a cgn cargo new --vcs=git --edition$rust_edition
+abbr -a cgnb cargo new --vcs=git --edition$rust_edition --bin
+abbr -a cgnl cargo new --vcs=git --edition$rust_edition --lib
+
 function abbr_cargo_run
     printf "%s cargo run --jobs (math (nproc) - 1)" (string join " " -- (__rust.fish::abbr::env_var_overrides))
 end
@@ -178,12 +205,23 @@ function abbr_cargo_run_release_bin
 end
 abbr -a cgrrb --set-cursor --function abbr_cargo_run_release_bin
 
+function abbr_cargo_search
+    set -l limit 10
+    if test (count $argv) -gt 0
+        set limit $argv[1]
+    end
+
+    printf "cargo-search --limit=%d %%\n" $limit
+
+end
+abbr -a cgs --set-cursor --function abbr_cargo_search --regex "cgs(\d*)"
 abbr -a cgs cargo-search --limit=10
 abbr -a cgt cargo test
 abbr -a cgu cargo update
 function abbr_cargo_update_package
     printf "cargo update --package %%\n"
     if test -f Cargo.toml
+        # TODO: what if you do not have taplo?
         set -l dependencies (command taplo get ".dependencies" --output-format toml < Cargo.toml)
         set -l dev_dependencies (command taplo get ".dev-dependencies" --output-format toml < Cargo.toml)
         # TODO: align by "="
@@ -232,7 +270,6 @@ abbr -a cgwc cargo watch $cargo_watch_flags --exec check
 abbr -a cgwt cargo watch $cargo_watch_flags --exec test
 
 # rustfmt
-set -l rust_edition 2021
 abbr -a rfmt rustfmt --edition=$rust_edition
 abbr -a rfmtc rustfmt --edition=$rust_edition --check
 
@@ -246,7 +283,8 @@ end
 abbr -a rupr rustup run # toolchain
 
 # bacon
-abbr -a bac bacon
+abbr -a bc bacon # sorry `/usr/bin/bc`
+abbr -a bct bacon test
 
 # completions
 set -l c complete -c cargo
@@ -276,6 +314,8 @@ end
 complete -c cargo -n "__fish_seen_subcommand_from add" -a "(__complete_crates.io)"
 complete -c cargo -n "__fish_seen_subcommand_from search" -a "(__complete_crates.io)"
 
+# TODO: find a way to intelligently search for all #[test] cases in a crate for `cargo test`
+
 # function complete_condition_rustup_run
 #     set -l buffer (commandline --current-process --cut-at-cursor)
 #     string match --quiet "rustup run" -- $buffer
@@ -283,3 +323,22 @@ complete -c cargo -n "__fish_seen_subcommand_from search" -a "(__complete_crates
 # end
 
 # complete -c rustup -n complete_condition_rustup_run -a hahaha
+
+function __complete_rustc_error_codes
+    set -l cache_file /tmp/(status function).cache.txt
+    if not test -f $cache_file
+        set -l url https://doc.rust-lang.org/error_codes/error-index.html
+        set -l curl_opts --silent
+        command curl $curl_opts $url \
+            | string match --regex --groups-only "(E\d{4})" \
+            | sort --unique >$cache_file
+    end
+
+    while read line
+        echo $line
+    end <$cache_file
+    # command cat $cache_file
+end
+
+# complete -c rustc -n "string match --quiet -- --explain (commandline --current-process --tokenize --cut-at-cursor)[-1]" -a "(__complete_rustc_error_codes)"
+complete -c rustc -l explain -a "(__complete_rustc_error_codes)"
