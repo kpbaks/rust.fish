@@ -45,7 +45,8 @@ function __rust.fish::find_crate_root_dir
     set -l dir $PWD
     while test $dir != /
         if test -f "$dir/Cargo.toml"
-            printf "%s\n" $dir
+            # printf "%s\n" $dir
+            echo $dir
             return 0
         end
 
@@ -57,6 +58,27 @@ end
 
 function __rust.fish::inside_crate_subtree
     __rust.fish::find_crate_root_dir >/dev/null
+end
+
+function __rust.fish::rustc::get_targets
+    command rustc --print target-list
+end
+
+function __rust.fish::rustc::get_target_features -a target_triple
+    # e.g. set target_triple x86_64-unknown-linux-gnu
+    # command rustc --target=$target_triple --print target-features \
+    #     | while read line
+    #     echo $line
+    # end
+
+    # TODO: filter the above result
+    # TODO: it generates some empty lines for some reason
+    command rustc --target=$target_triple --print target-features \
+        | while read line
+        string match --regex --groups-only "^\s+(\S+)\s+-\s(.+)\$" $line | read --line feature desc
+        printf "%s\t%s\n" $feature $desc
+    end
+
 end
 
 function __rust.fish::cargo::get_tests -a target
@@ -99,6 +121,18 @@ function __rust.fish::abbr::env_var_overrides
     # TODO: what about RUSTFLAGS https://github.com/rust-lang/portable-simd/blob/master/beginners-guide.md#selecting-additional-target-features
     set -l env_var_overrides
     set -l buffer (commandline)
+    # rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold"]
+    # rustflags = [
+    #   "-C",
+    #   "link-arg=-fuse-ld=/nix/store/jfvy2amv3ppagvl80g0x3r82k56016kl-mold-2.4.0/bin/mold",
+    # ]
+
+    command --query mold
+    and not set --query --export RUSTFLAGS
+    and not string match --regex --quiet "RUSTFLAGS=\w+" -- $buffer
+    # or set --append env_var_overrides (printf "RUSTFLAGS='-C link-arg=-fuse-ld=%s'" (command --search mold))
+    and set --append env_var_overrides (printf "RUSTFLAGS='-C link-arg=-fuse-ld=%s'" mold)
+
     if not string match --regex --quiet "RUST_LOG=\w+" -- $buffer
         # commandline does not contain RUST_LOG as a temporary env var override
         # if it is already exported as a env var, then add it with the default value of "info"
@@ -133,6 +167,7 @@ end
 
 # cargo
 abbr -a cg cargo
+# TODO: if in a cargo workspace, maybe suggest user to user `--package <package>` to specify which subcrate should hae
 abbr -a cga cargo add
 abbr -a cgad cargo add --dev
 abbr -a cgab cargo add --build
@@ -182,7 +217,9 @@ abbr -a cgnb cargo new --vcs=git --edition$rust_edition --bin
 abbr -a cgnl cargo new --vcs=git --edition$rust_edition --lib
 
 function abbr_cargo_run
-    printf "%s cargo run --jobs (math (nproc) - 1)" (string join " " -- (__rust.fish::abbr::env_var_overrides))
+    __rust.fish::abbr::env_var_overrides
+    printf "cargo run --jobs (math (nproc) - 1)\n"
+    # printf "%s cargo run --jobs (math (nproc) - 1)" (string join " " -- (__rust.fish::abbr::env_var_overrides))
 end
 abbr -a cgr --function abbr_cargo_run
 
@@ -216,7 +253,18 @@ function abbr_cargo_search
 end
 abbr -a cgs --set-cursor --function abbr_cargo_search --regex "cgs(\d*)"
 abbr -a cgs cargo-search --limit=10
-abbr -a cgt cargo test
+function abbr_cargo_test
+    # If `cargo-nextest` is installed then use it, otherwise suggest the user install it
+    if command --query cargo-nextest
+        printf "cargo nextest run"
+    else
+        set -l nextest_url "https://nexte.st/"
+        printf "# check out %s as an alternative to `cargo test`\n" $nextest_url
+        printf "cargo next"
+    end
+end
+
+abbr -a cgt -f abbr_cargo_test
 abbr -a cgu cargo update
 function abbr_cargo_update_package
     printf "cargo update --package %%\n"
@@ -342,3 +390,23 @@ end
 
 # complete -c rustc -n "string match --quiet -- --explain (commandline --current-process --tokenize --cut-at-cursor)[-1]" -a "(__complete_rustc_error_codes)"
 complete -c rustc -l explain -a "(__complete_rustc_error_codes)"
+
+# TODO: check if mold is installed or prepend this
+# RUSTFLAGS="-C link-arg=-fuse-ld=mold
+
+function __rust.fish::emitters::enter_cargo_project_root_folder --on-variable PWD
+    test -d Cargo.toml; or return 0
+    # We could be in a subcrate of a cargo workspace so we have to
+    # check if the parent also has a Cargo.toml
+    test -d ../Cargo.toml; and return 0
+    emit enter_cargo_project_root_folder $PWD
+end
+
+if command --query mold
+    function __rust.fish::hooks::use_mold_as_linker --on-event enter_cargo_project_root_folder
+        # check if ./.cargo/config.toml exists
+        if test .cargo/config.toml
+        end
+        #
+    end
+end
