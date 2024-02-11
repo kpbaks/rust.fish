@@ -117,6 +117,10 @@ function __rust.fish::abbr::list -d "list all abbreviations in rust.fish"
     string match --regex "^abbr -a.*" <(status filename) | fish_indent --ansi
 end
 
+function __rust.fish::abbr_gen_jobs
+    printf "set -l jobs (math (nproc) - 1) # leave one CPU core for interactivity\n"
+end
+
 function __rust.fish::abbr::env_var_overrides
     # TODO: what about RUSTFLAGS https://github.com/rust-lang/portable-simd/blob/master/beginners-guide.md#selecting-additional-target-features
     set -l env_var_overrides
@@ -176,7 +180,8 @@ abbr -a cgbr cargo build --jobs "(math (nproc) - 1)" --release
 abbr -a cgc cargo check
 abbr -a cgd cargo doc --open
 function abbr_cargo_install
-    printf "cargo install --jobs (math (nproc) - 1)"
+    __rust.fish::abbr_gen_jobs
+    printf "cargo install --jobs=\$jobs"
     set -l clipboard (fish_clipboard_paste)
     if string match --regex --quiet "https://git(hub|lab)\.com/\w+/\w+" -- $clipboard
         # Check if clipboard contains a git url, e.g. "https://github.com/Doctave/doctave"
@@ -187,7 +192,8 @@ function abbr_cargo_install
 end
 
 function abbr_cargo_install_locked
-    printf "cargo install --jobs (math (nproc) - 1) --locked"
+    __rust.fish::abbr_gen_jobs
+    printf "cargo install --jobs=\$jobs --locked"
     set -l clipboard (fish_clipboard_paste)
     if string match --regex --quiet "https://git(hub|lab)\.com/\w+/\w+" -- $clipboard
         printf " --git %s%%" (string trim $clipboard)
@@ -212,31 +218,35 @@ end
 
 abbr -a cgmt --set-cursor --function abbr_cargo_metadata
 
-abbr -a cgn cargo new --vcs=git --edition$rust_edition
-abbr -a cgnb cargo new --vcs=git --edition$rust_edition --bin
-abbr -a cgnl cargo new --vcs=git --edition$rust_edition --lib
+abbr -a cgn cargo new --vcs=git --edition=$rust_edition
+abbr -a cgnb cargo new --vcs=git --edition=$rust_edition --bin
+abbr -a cgnl cargo new --vcs=git --edition=$rust_edition --lib
 
 function abbr_cargo_run
-    __rust.fish::abbr::env_var_overrides
-    printf "cargo run --jobs (math (nproc) - 1)\n"
-    # printf "%s cargo run --jobs (math (nproc) - 1)" (string join " " -- (__rust.fish::abbr::env_var_overrides))
+    __rust.fish::abbr_gen_jobs
+    # __rust.fish::abbr::env_var_overrides
+    # printf "cargo run --jobs $jobs\n"
+    printf "%s cargo run --jobs=\$jobs" (string join " " -- (__rust.fish::abbr::env_var_overrides))
 end
 abbr -a cgr --function abbr_cargo_run
 
 function abbr_cargo_run_bin
-    printf "%s cargo run --jobs (math (nproc) - 1) --bin %% " (string join " " -- (__rust.fish::abbr::env_var_overrides))
+    __rust.fish::abbr_gen_jobs
+    printf "%s cargo run --jobs=\$jobs --bin %% " (string join " " -- (__rust.fish::abbr::env_var_overrides))
     __rust.fish::abbr::bin_postfix
     printf "\n"
 end
 abbr -a cgrb --set-cursor --function abbr_cargo_run_bin
 
 function abbr_cargo_run_release
-    printf "%s cargo run --jobs (math (nproc) - 1) --release" (string join " " -- (__rust.fish::abbr::env_var_overrides))
+    __rust.fish::abbr_gen_jobs
+    printf "%s cargo run --jobs=\$jobs --release" (string join " " -- (__rust.fish::abbr::env_var_overrides))
 end
 abbr -a cgrr --function abbr_cargo_run_release
 
 function abbr_cargo_run_release_bin
-    printf "%s cargo run --jobs (math (nproc) - 1) --release --bin %% " (string join " " -- (__rust.fish::abbr::env_var_overrides))
+    __rust.fish::abbr_gen_jobs
+    printf "%s cargo run --jobs=\$jobs --release --bin %% " (string join " " -- (__rust.fish::abbr::env_var_overrides))
     __rust.fish::abbr::bin_postfix
     printf "\n"
 end
@@ -244,15 +254,15 @@ abbr -a cgrrb --set-cursor --function abbr_cargo_run_release_bin
 
 function abbr_cargo_search
     set -l limit 10
-    if test (count $argv) -gt 0
-        set limit $argv[1]
+    if string match --regex --groups-only "(\d+)" $argv | read n
+        set limit $n
     end
 
     printf "cargo-search --limit=%d %%\n" $limit
 
 end
-abbr -a cgs --set-cursor --function abbr_cargo_search --regex "cgs(\d*)"
-abbr -a cgs cargo-search --limit=10
+abbr -a cgs --set-cursor --function abbr_cargo_search --regex "cgs\d*"
+# abbr -a cgs cargo-search --limit=10
 function abbr_cargo_test
     # If `cargo-nextest` is installed then use it, otherwise suggest the user install it
     if command --query cargo-nextest
@@ -324,6 +334,7 @@ abbr -a rfmtc rustfmt --edition=$rust_edition --check
 # rustup
 abbr -a rup rustup
 abbr -a rupu rustup update
+abbr -a rupus rustup update stable
 function __rust.fish::rustup::installed_toolchains
     command rustup toolchain list | string split --fields=1 " "
 end

@@ -46,9 +46,9 @@ function cargo-update-dependencies -d "Update all dependencies in Cargo.toml"
     #     printf "%s\n" $dependency
     # end
 
-        set -l url "$endpoint/crates/ariadne"
+    set -l url "$endpoint/crates/ariadne"
 
-        command curl -s "$url"
-        # command curl -s "$url" | jaq -r '.crate.max_version'
-        # curl -s "$url" | jq -r '.max_version'
+    command curl -s "$url"
+    # command curl -s "$url" | jaq -r '.crate.max_version'
+    # curl -s "$url" | jq -r '.max_version'
 end
