@@ -218,6 +218,12 @@ end
 
 abbr -a cgmt --set-cursor --function abbr_cargo_metadata
 
+# TODO: put in a function and output:
+# ```fish
+# set -l name %
+# cargo new $name
+# cd $name
+# ```
 abbr -a cgn cargo new --vcs=git --edition=$rust_edition
 abbr -a cgnb cargo new --vcs=git --edition=$rust_edition --bin
 abbr -a cgnl cargo new --vcs=git --edition=$rust_edition --lib
@@ -420,4 +426,71 @@ if command --query mold
         end
         #
     end
+end
+
+# keybinds --------------------------------------------------------------------
+
+# FIXME: does not work with multiline buffers e.g.
+# ```fish
+# set -l jobs 10
+# cargo run --jobs=$jobs |
+# ```
+# Should change buffer to:
+# ```fish
+# set -l jobs 10
+# RUST_BACKTRACE=0 cargo run --jobs=$jobs |
+# ```
+function __rust.fish::keybinds::shuffle_RUST_BACKTRACE_impl -a buf
+    if string match --regex --index "RUST_BACKTRACE=(0|1|full) " $buf | read --line entire_span value_span
+        set entire_span (string split " " $entire_span)
+        set value_span (string split " " $value_span)
+        # echo "entire_span: $entire_span"
+        # echo "value_span: $value_span"
+        # RUST_BACKTRACE exists in the commandline buffer
+        set -l current_value (string sub --start=$value_span[1] --length=$value_span[2] $buf)
+        switch $current_value
+            case 0 # -> 1
+                set -f next_value 1
+            case 1 # -> full
+                set -f next_value full
+            case full # -> None
+                # Remove RUST_BACKTRACE=full from the commandline
+                # NOTE: There is no way of changing a selection/span of the commandline buffer
+                # with the `commandline` command. You have the override the ENTIRE buffer with the updated buffer
+                set -l before
+                if test $entire_span[1] -ne 1
+                    set -l before (string sub --start=1 --end=$entire_span[1] $buf)
+                end
+                set -l after (string sub --start=(math "$entire_span[1] + $entire_span[2]") $buf)
+                set -l updated_buffer "$before$after"
+                echo $updated_buffer
+            case '*'
+                # unreachable!()
+        end
+        if set --query next_value
+            set -l before
+            if test $entire_span[1] -ne 1
+                set -l before (string sub --start=1 --end=$entire_span[1] $buf)
+            end
+            set -l after (string sub --start=(math "$entire_span[1] + $entire_span[2]") $buf)
+            printf "%sRUST_BACKTRACE=%s %s\n" "$before" $next_value $after
+        end
+    else
+        # RUST_BACKTRACE does not exist in the commandline buffer
+        # Prepend RUST_BACKTRACE=0 as a ephemeral env var
+        echo "RUST_BACKTRACE=0 $buf"
+    end
+end
+
+function __rust.fish::keybinds::shuffle_RUST_BACKTRACE
+    set -l buf (commandline)
+    set -l updated_buf (__rust.fish::keybinds::shuffle_RUST_BACKTRACE_impl $buf)
+    commandline --replace $updated_buf
+    commandline --function repaint
+end
+
+begin
+    # set -l mode rust
+    # bind --mode=$mode \eb __rust.fish::keybinds::shuffle_RUST_BACKTRACE
+    bind \eb __rust.fish::keybinds::shuffle_RUST_BACKTRACE
 end
