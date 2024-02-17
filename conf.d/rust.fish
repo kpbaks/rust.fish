@@ -218,15 +218,42 @@ end
 
 abbr -a cgmt --set-cursor --function abbr_cargo_metadata
 
-# TODO: put in a function and output:
-# ```fish
-# set -l name %
-# cargo new $name
-# cd $name
-# ```
-abbr -a cgn cargo new --vcs=git --edition=$rust_edition
-abbr -a cgnb cargo new --vcs=git --edition=$rust_edition --bin
-abbr -a cgnl cargo new --vcs=git --edition=$rust_edition --lib
+function __rust.fish::get_rust_edition
+    echo 2021
+end
+
+function __rust.fish::abbr::cargo_new -a crate_type
+    if test (count $argv) -eq 0
+        printf "%s <(--)?(bin|lib)>\n" (status function)
+        return 2
+    end
+
+    if not string match --regex --quiet '(--)?(bin|lib)' $crate_type
+        return 2
+    end
+
+    if not string match --regex --quiet '^--' $crate_type
+        set crate_type "--$crate_type"
+    end
+
+    set -l vcs git
+    set -l edition (__rust.fish::get_rust_edition)
+
+    echo "set -l name %"
+    echo "cargo new --vcs=$vcs --edition=$edition $crate_type \$name"
+    echo "cd \$name"
+end
+
+function __rust.fish::abbr::cargo_new_bin
+    __rust.fish::abbr::cargo_new bin
+end
+function __rust.fish::abbr::cargo_new_lib
+    __rust.fish::abbr::cargo_new lib
+end
+
+abbr -a cgn -f __rust.fish::abbr::cargo_new_bin --set-cursor
+abbr -a cgnb -f __rust.fish::abbr::cargo_new_bin --set-cursor
+abbr -a cgnl -f __rust.fish::abbr::cargo_new_lib --set-cursor
 
 function abbr_cargo_run
     __rust.fish::abbr_gen_jobs
@@ -276,7 +303,7 @@ function abbr_cargo_test
     else
         set -l nextest_url "https://nexte.st/"
         printf "# check out %s as an alternative to `cargo test`\n" $nextest_url
-        printf "cargo next"
+        printf "cargo test"
     end
 end
 
