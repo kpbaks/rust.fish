@@ -12,6 +12,11 @@ function __rust::on::uninstall --on-event rust_uninstall
     # Erase "private" functions, variables, bindings, and other uninstall logic.
 end
 
+set --query rust_fish_default_rust_backtrace_level
+or set --universal rust_fish_default_rust_backtrace_level 0
+
+set --query rust_fish_default_rust_log_level
+or set --universal rust_fish_default_rust_log_level info
 
 # TODO: create functions to detect if in a bin or lib crate
 
@@ -164,11 +169,6 @@ function __rust::abbr::env_var_overrides
     # TODO: what about RUSTFLAGS https://github.com/rust-lang/portable-simd/blob/master/beginners-guide.md#selecting-additional-target-features
     set -l env_var_overrides
     set -l buffer (commandline)
-    # rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold"]
-    # rustflags = [
-    #   "-C",
-    #   "link-arg=-fuse-ld=/nix/store/jfvy2amv3ppagvl80g0x3r82k56016kl-mold-2.4.0/bin/mold",
-    # ]
 
     command --query mold
     and not set --query --export RUSTFLAGS
@@ -179,10 +179,10 @@ function __rust::abbr::env_var_overrides
     if not string match --regex --quiet "RUST_LOG=\w+" -- $buffer
         # commandline does not contain RUST_LOG as a temporary env var override
         # if it is already exported as a env var, then add it with the default value of "info"
-        set --query RUST_LOG; or set --append env_var_overrides "RUST_LOG=info"
+        set --query RUST_LOG; or set --append env_var_overrides "RUST_LOG=$rust_fish_default_rust_log_level"
     end
     if not string match --regex --quiet "RUST_BACKTRACE=\d+" -- $buffer
-        set --query RUST_BACKTRACE; or set --append env_var_overrides "RUST_BACKTRACE=0"
+        set --query RUST_BACKTRACE; or set --append env_var_overrides "RUST_BACKTRACE=$rust_fish_default_rust_backtrace_level"
     end
 
     printf "%s\n" $env_var_overrides
