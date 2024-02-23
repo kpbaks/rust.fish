@@ -36,6 +36,11 @@ function cargo-search -d "Wrapper around `cargo search`"
         return 0
     end
 
+    if test (count $argv) -eq 0
+        printf "%serror%s: no query given.\n" $red $reset
+        return 2
+    end
+
     set -l limit $default_limit
     if set --query _flag_limit
         set limit $_flag_limit

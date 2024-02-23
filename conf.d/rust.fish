@@ -1,14 +1,19 @@
-function __rust.fish::on::install --on-event rust_install
+# TODO: integrate sccache somehow
+
+function __rust::on::install --on-event rust_install
     # Set universal variables, create bindings, and other initialization logic.
 end
 
-function __rust.fish::on::update --on-event rust_update
+function __rust::on::update --on-event rust_update
     # Migrate resources, print warnings, and other update logic.
 end
 
-function __rust.fish::on::uninstall --on-event rust_uninstall
+function __rust::on::uninstall --on-event rust_uninstall
     # Erase "private" functions, variables, bindings, and other uninstall logic.
 end
+
+
+# TODO: create functions to detect if in a bin or lib crate
 
 set -l rust_edition 2021
 set -l reset (set_color normal)
@@ -40,13 +45,23 @@ else
     end
 end
 
+function __rust::get_rust_edition
+    if not set --query __rust_get_rust_edition_cache
+        set --global __rust_get_rust_edition_cache 2021
+    end
+    echo $__rust_get_rust_edition_cache
+end
 
-function __rust.fish::find_crate_root_dir
+function __rust::cargo::find_crate_root_dir
     set -l dir $PWD
     while test $dir != /
         if test -f "$dir/Cargo.toml"
-            # printf "%s\n" $dir
-            echo $dir
+            if test -f "..$dir/Cargo.toml"
+                # Handle case where you are in a subcrate of a workspace
+                path dirname $dir
+            else
+                echo $dir
+            end
             return 0
         end
 
@@ -56,15 +71,27 @@ function __rust.fish::find_crate_root_dir
     return 1
 end
 
-function __rust.fish::inside_crate_subtree
-    __rust.fish::find_crate_root_dir >/dev/null
+function __rust::cargo::inside_crate_subtree
+    __rust::cargo::find_crate_root_dir >/dev/null
 end
 
-function __rust.fish::rustc::get_targets
+function __rust::cargo::inside_workspace
+    echo todo
+    return 1
+end
+
+function __rust::cargo::crate_type
+    echo todo
+    echo lib
+    echo bin
+    return 1
+end
+
+function __rust::rustc::get_targets
     command rustc --print target-list
 end
 
-function __rust.fish::rustc::get_target_features -a target_triple
+function __rust::rustc::get_target_features -a target_triple
     # e.g. set target_triple x86_64-unknown-linux-gnu
     # command rustc --target=$target_triple --print target-features \
     #     | while read line
@@ -81,26 +108,26 @@ function __rust.fish::rustc::get_target_features -a target_triple
 
 end
 
-function __rust.fish::cargo::get_tests -a target
+function __rust::cargo::get_tests -a target
     set -l expr "command cargo test $target -- --list --format=terse 2>/dev/null | sort --unique | string split --fields=1 ': '"
     set --query RUST_FISH_DEBUG; and echo $expr | fish_indent --ansi >&2
     eval $expr
 end
 
-function __rust.fish::cargo::get_lib_tests
-    __rust.fish::cargo::get_tests --lib
+function __rust::cargo::get_lib_tests
+    __rust::cargo::get_tests --lib
 end
 
-function __rust.fish::cargo::get_examples_tests
-    __rust.fish::cargo::get_tests --examples
+function __rust::cargo::get_examples_tests
+    __rust::cargo::get_tests --examples
 end
 
-function __rust.fish::cargo::get_bins_tests
-    __rust.fish::cargo::get_tests --bins
+function __rust::cargo::get_bins_tests
+    __rust::cargo::get_tests --bins
 end
 
-function __rust.fish::cargo::get_benches_tests
-    __rust.fish::cargo::get_tests --benches
+function __rust::cargo::get_benches_tests
+    __rust::cargo::get_tests --benches
 end
 
 function __get_cargo_bins
@@ -113,15 +140,27 @@ function __get_cargo_examples
     command cargo run --example 2>&1 | string replace --regex --filter '^\s+' ''
 end
 
-function __rust.fish::abbr::list -d "list all abbreviations in rust.fish"
+function __rust::abbr::utils::check_inside_crate
+    if not __rust::cargo::inside_crate_subtree
+        echo "# $PWD is not a subdirectory of a crate!"
+    end
+end
+
+function __rust::abbr::list -d "list all abbreviations in rust.fish"
     string match --regex "^abbr -a.*" <(status filename) | fish_indent --ansi
 end
 
-function __rust.fish::abbr_gen_jobs
+function __rust::abbr::gen_jobs
     printf "set -l jobs (math (nproc) - 1) # leave one CPU core for interactivity\n"
 end
 
-function __rust.fish::abbr::env_var_overrides
+function __rust::abbr::in_cargo_project
+    if not __rust::cargo::inside_crate_subtree
+        echo "# YOU ARE NOT INSIDE A CARGO PROJECT!"
+    end
+end
+
+function __rust::abbr::env_var_overrides
     # TODO: what about RUSTFLAGS https://github.com/rust-lang/portable-simd/blob/master/beginners-guide.md#selecting-additional-target-features
     set -l env_var_overrides
     set -l buffer (commandline)
@@ -149,8 +188,9 @@ function __rust.fish::abbr::env_var_overrides
     printf "%s\n" $env_var_overrides
 end
 
-function __rust.fish::abbr::bin_postfix
-    if __rust.fish::inside_crate_subtree
+function __rust::abbr::bin_postfix
+    # CHECK if in a lib or bin crate
+    if __rust::cargo::inside_crate_subtree
         set -l bins (__get_cargo_bins)
         set -l n_bins (count $bins)
         switch $n_bins
@@ -179,8 +219,8 @@ abbr -a cgb cargo build --jobs "(math (nproc) - 1)"
 abbr -a cgbr cargo build --jobs "(math (nproc) - 1)" --release
 abbr -a cgc cargo check
 abbr -a cgd cargo doc --open
-function abbr_cargo_install
-    __rust.fish::abbr_gen_jobs
+function __rust::abbr::cargo_install
+    __rust::abbr::gen_jobs
     printf "cargo install --jobs=\$jobs"
     set -l clipboard (fish_clipboard_paste)
     if string match --regex --quiet "https://git(hub|lab)\.com/\w+/\w+" -- $clipboard
@@ -191,8 +231,8 @@ function abbr_cargo_install
     printf "\n"
 end
 
-function abbr_cargo_install_locked
-    __rust.fish::abbr_gen_jobs
+function __rust::abbr::cargo_install_locked
+    __rust::abbr::gen_jobs
     printf "cargo install --jobs=\$jobs --locked"
     set -l clipboard (fish_clipboard_paste)
     if string match --regex --quiet "https://git(hub|lab)\.com/\w+/\w+" -- $clipboard
@@ -200,11 +240,11 @@ function abbr_cargo_install_locked
     end
     printf "\n"
 end
-# abbr -a cgi cargo install --jobs "(math (nproc) - 1)"
-abbr -a cgi --set-cursor --function abbr_cargo_install
-abbr -a cgil --set-cursor --function abbr_cargo_install_locked
-# abbr -a cgil cargo install --jobs "(math (nproc) - 1)" --locked
-function abbr_cargo_metadata
+
+abbr -a cgi --set-cursor --function __rust::abbr::cargo_install
+abbr -a cgil --set-cursor --function __rust::abbr::cargo_install_locked
+
+function __rust::abbr::cargo_metadata
     printf "cargo metadata --format-version=1"
     if command --query fx
         printf "| fx"
@@ -216,13 +256,10 @@ function abbr_cargo_metadata
     printf "\n"
 end
 
-abbr -a cgmt --set-cursor --function abbr_cargo_metadata
+abbr -a cgmt --set-cursor --function __rust::abbr::cargo_metadata
 
-function __rust.fish::get_rust_edition
-    echo 2021
-end
 
-function __rust.fish::abbr::cargo_new -a crate_type
+function __rust::abbr::cargo_new -a crate_type
     if test (count $argv) -eq 0
         printf "%s <(--)?(bin|lib)>\n" (status function)
         return 2
@@ -237,55 +274,57 @@ function __rust.fish::abbr::cargo_new -a crate_type
     end
 
     set -l vcs git
-    set -l edition (__rust.fish::get_rust_edition)
+    set -l edition (__rust::get_rust_edition)
 
     echo "set -l name %"
     echo "cargo new --vcs=$vcs --edition=$edition $crate_type \$name"
     echo "cd \$name"
 end
 
-function __rust.fish::abbr::cargo_new_bin
-    __rust.fish::abbr::cargo_new bin
+function __rust::abbr::cargo_new_bin
+    __rust::abbr::cargo_new bin
 end
-function __rust.fish::abbr::cargo_new_lib
-    __rust.fish::abbr::cargo_new lib
+function __rust::abbr::cargo_new_lib
+    __rust::abbr::cargo_new lib
 end
 
-abbr -a cgn -f __rust.fish::abbr::cargo_new_bin --set-cursor
-abbr -a cgnb -f __rust.fish::abbr::cargo_new_bin --set-cursor
-abbr -a cgnl -f __rust.fish::abbr::cargo_new_lib --set-cursor
+abbr -a cgn -f __rust::abbr::cargo_new_bin --set-cursor
+abbr -a cgnb -f __rust::abbr::cargo_new_bin --set-cursor
+abbr -a cgnl -f __rust::abbr::cargo_new_lib --set-cursor
 
 function abbr_cargo_run
-    __rust.fish::abbr_gen_jobs
-    # __rust.fish::abbr::env_var_overrides
-    # printf "cargo run --jobs $jobs\n"
-    printf "%s cargo run --jobs=\$jobs" (string join " " -- (__rust.fish::abbr::env_var_overrides))
+    __rust::abbr::in_cargo_project
+    __rust::abbr::gen_jobs
+    printf "%s cargo run --jobs=\$jobs" (string join " " -- (__rust::abbr::env_var_overrides))
 end
 abbr -a cgr --function abbr_cargo_run
 
 function abbr_cargo_run_bin
-    __rust.fish::abbr_gen_jobs
-    printf "%s cargo run --jobs=\$jobs --bin %% " (string join " " -- (__rust.fish::abbr::env_var_overrides))
-    __rust.fish::abbr::bin_postfix
+    __rust::abbr::in_cargo_project
+    __rust::abbr::gen_jobs
+    printf "%s cargo run --jobs=\$jobs --bin %% " (string join " " -- (__rust::abbr::env_var_overrides))
+    __rust::abbr::bin_postfix
     printf "\n"
 end
 abbr -a cgrb --set-cursor --function abbr_cargo_run_bin
 
 function abbr_cargo_run_release
-    __rust.fish::abbr_gen_jobs
-    printf "%s cargo run --jobs=\$jobs --release" (string join " " -- (__rust.fish::abbr::env_var_overrides))
+    __rust::abbr::in_cargo_project
+    __rust::abbr::gen_jobs
+    printf "%s cargo run --jobs=\$jobs --release" (string join " " -- (__rust::abbr::env_var_overrides))
 end
 abbr -a cgrr --function abbr_cargo_run_release
 
 function abbr_cargo_run_release_bin
-    __rust.fish::abbr_gen_jobs
-    printf "%s cargo run --jobs=\$jobs --release --bin %% " (string join " " -- (__rust.fish::abbr::env_var_overrides))
-    __rust.fish::abbr::bin_postfix
+    __rust::abbr::in_cargo_project
+    __rust::abbr::gen_jobs
+    printf "%s cargo run --jobs=\$jobs --release --bin %% " (string join " " -- (__rust::abbr::env_var_overrides))
+    __rust::abbr::bin_postfix
     printf "\n"
 end
 abbr -a cgrrb --set-cursor --function abbr_cargo_run_release_bin
 
-function abbr_cargo_search
+function __rust::abbr::cargo_search
     set -l limit 10
     if string match --regex --groups-only "(\d+)" $argv | read n
         set limit $n
@@ -294,11 +333,12 @@ function abbr_cargo_search
     printf "cargo-search --limit=%d %%\n" $limit
 
 end
-abbr -a cgs --set-cursor --function abbr_cargo_search --regex "cgs\d*"
+abbr -a cgs --set-cursor --function __rust::abbr::cargo_search --regex "cgs\d*"
 # abbr -a cgs cargo-search --limit=10
-function abbr_cargo_test
+function __rust::abbr::cargo_test
     # If `cargo-nextest` is installed then use it, otherwise suggest the user install it
     if command --query cargo-nextest
+        printf "# NOTE: `cargo-nextest` (as of 20-02-24) does not support DOC tests, use `cargo test --doc` instead\n"
         printf "cargo nextest run"
     else
         set -l nextest_url "https://nexte.st/"
@@ -307,29 +347,31 @@ function abbr_cargo_test
     end
 end
 
-abbr -a cgt -f abbr_cargo_test
+abbr -a cgt -f __rust::abbr::cargo_test
+abbr -a cgtd cargo test --doc
+
 abbr -a cgu cargo update
-function abbr_cargo_update_package
-    printf "cargo update --package %%\n"
-    if test -f Cargo.toml
-        # TODO: what if you do not have taplo?
-        set -l dependencies (command taplo get ".dependencies" --output-format toml < Cargo.toml)
-        set -l dev_dependencies (command taplo get ".dev-dependencies" --output-format toml < Cargo.toml)
-        # TODO: align by "="
-        if test (count $dependencies) -gt 0
-            # TODO: handle case where crate is of the form: "<name> = { version = <version> ... }"
-            printf "# dependencies:\n"
-            printf "# - %s\n" $dependencies
-        end
-        if test (count $dev_dependencies) -gt 0
-            printf "#\n"
-            printf "# dev-dependencies:\n"
-            printf "# - %s\n" $dev_dependencies
-        end
-    end
-end
+# function abbr_cargo_update_package
+#     printf "cargo update --package %%\n"
+#     if test -f Cargo.toml
+#         # TODO: what if you do not have taplo?
+#         set -l dependencies (command taplo get ".dependencies" --output-format toml < Cargo.toml)
+#         set -l dev_dependencies (command taplo get ".dev-dependencies" --output-format toml < Cargo.toml)
+#         # TODO: align by "="
+#         if test (count $dependencies) -gt 0
+#             # TODO: handle case where crate is of the form: "<name> = { version = <version> ... }"
+#             printf "# dependencies:\n"
+#             printf "# - %s\n" $dependencies
+#         end
+#         if test (count $dev_dependencies) -gt 0
+#             printf "#\n"
+#             printf "# dev-dependencies:\n"
+#             printf "# - %s\n" $dev_dependencies
+#         end
+#     end
+# end
 abbr -a cgup cargo update --package
-abbr -a cgup --set-cursor --function abbr_cargo_update_package
+# abbr -a cgup --set-cursor --function abbr_cargo_update_package
 abbr -a cgud cargo update --dry-run
 
 # cargo thirdparty subcommands
@@ -337,14 +379,14 @@ abbr -a cgbi cargo binstall # `cargo install binstall`
 abbr -a cge cargo expand # `cargo install cargo-expand`
 abbr -a cgm cargo-modules # `cargo install cargo-modules`
 
-function abbr_cargo_modules_structure_bin
+function __rust::abbr::cargo_modules_structure_bin
     printf "cargo-modules structure --bin %% "
-    __rust.fish::abbr::bin_postfix
+    __rust::abbr::bin_postfix
 
     printf "\n"
 end
 # abbr -a cgmb cargo-modules structure --bin
-abbr -a cgmb --set-cursor --function abbr_cargo_modules_structure_bin
+abbr -a cgmb --set-cursor -f __rust::abbr::cargo_modules_structure_bin
 abbr -a cgml cargo-modules structure --lib
 abbr -a cgmo cargo-modules orphans
 
@@ -368,7 +410,7 @@ abbr -a rfmtc rustfmt --edition=$rust_edition --check
 abbr -a rup rustup
 abbr -a rupu rustup update
 abbr -a rupus rustup update stable
-function __rust.fish::rustup::installed_toolchains
+function __rust::rustup::installed_toolchains
     command rustup toolchain list | string split --fields=1 " "
 end
 
@@ -435,10 +477,7 @@ end
 # complete -c rustc -n "string match --quiet -- --explain (commandline --current-process --tokenize --cut-at-cursor)[-1]" -a "(__complete_rustc_error_codes)"
 complete -c rustc -l explain -a "(__complete_rustc_error_codes)"
 
-# TODO: check if mold is installed or prepend this
-# RUSTFLAGS="-C link-arg=-fuse-ld=mold
-
-function __rust.fish::emitters::enter_cargo_project_root_folder --on-variable PWD
+function __rust::emitters::enter_cargo_project_root_folder --on-variable PWD
     test -d Cargo.toml; or return 0
     # We could be in a subcrate of a cargo workspace so we have to
     # check if the parent also has a Cargo.toml
@@ -447,11 +486,20 @@ function __rust.fish::emitters::enter_cargo_project_root_folder --on-variable PW
 end
 
 if command --query mold
-    function __rust.fish::hooks::use_mold_as_linker --on-event enter_cargo_project_root_folder
+    function __rust::hooks::use_mold_as_linker --on-event enter_cargo_project_root_folder
         # check if ./.cargo/config.toml exists
         if test .cargo/config.toml
+            # TODO: finish
         end
-        #
+    end
+end
+
+if command --query sccache
+    function __rust::hooks::use_sccache --on-event enter_cargo_project_root_folder
+        # check if ./.cargo/config.toml exists
+        if test .cargo/config.toml
+            # TODO: finish
+        end
     end
 end
 
@@ -467,25 +515,44 @@ end
 # set -l jobs 10
 # RUST_BACKTRACE=0 cargo run --jobs=$jobs |
 # ```
-function __rust.fish::keybinds::shuffle_RUST_BACKTRACE_impl -a buf
+function __rust::keybinds::shuffle_RUST_BACKTRACE_impl -a buf
+    set -l options l/linenum=
+    if not argparse $options -- $argv
+        return 2
+    end
+
+    set -l linenum 1
+    if set --query _flag_linenum
+        set linenum $_flag_linenum
+    end
+
+    if string match --regex '^\s*$' -- $buf
+        # string is empty, do nothing
+        return
+    end
+
+    set -l lines (string split \n -- $buf)
+
+
     if string match --regex --index "RUST_BACKTRACE=(0|1|full) " $buf | read --line entire_span value_span
         set entire_span (string split " " $entire_span)
         set value_span (string split " " $value_span)
         # echo "entire_span: $entire_span"
         # echo "value_span: $value_span"
         # RUST_BACKTRACE exists in the commandline buffer
-        set -l current_value (string sub --start=$value_span[1] --length=$value_span[2] $buf)
-        switch $current_value
+        set -l current_backtrace_value (string sub --start=$value_span[1] --length=$value_span[2] $buf)
+        switch $current_backtrace_value
             case 0 # -> 1
-                set -f next_value 1
+                set -f next_backtrace_value 1
             case 1 # -> full
-                set -f next_value full
+                set -f next_backtrace_value full
             case full # -> None
                 # Remove RUST_BACKTRACE=full from the commandline
                 # NOTE: There is no way of changing a selection/span of the commandline buffer
                 # with the `commandline` command. You have the override the ENTIRE buffer with the updated buffer
                 set -l before
                 if test $entire_span[1] -ne 1
+                    # TODO: explain why we do this
                     set -l before (string sub --start=1 --end=$entire_span[1] $buf)
                 end
                 set -l after (string sub --start=(math "$entire_span[1] + $entire_span[2]") $buf)
@@ -494,13 +561,13 @@ function __rust.fish::keybinds::shuffle_RUST_BACKTRACE_impl -a buf
             case '*'
                 # unreachable!()
         end
-        if set --query next_value
+        if set --query next_backtrace_value
             set -l before
             if test $entire_span[1] -ne 1
                 set -l before (string sub --start=1 --end=$entire_span[1] $buf)
             end
             set -l after (string sub --start=(math "$entire_span[1] + $entire_span[2]") $buf)
-            printf "%sRUST_BACKTRACE=%s %s\n" "$before" $next_value $after
+            printf "%sRUST_BACKTRACE=%s %s\n" "$before" $next_backtrace_value $after
         end
     else
         # RUST_BACKTRACE does not exist in the commandline buffer
@@ -509,15 +576,16 @@ function __rust.fish::keybinds::shuffle_RUST_BACKTRACE_impl -a buf
     end
 end
 
-function __rust.fish::keybinds::shuffle_RUST_BACKTRACE
+function __rust::keybinds::shuffle_RUST_BACKTRACE
     set -l buf (commandline)
-    set -l updated_buf (__rust.fish::keybinds::shuffle_RUST_BACKTRACE_impl $buf)
+    set -l line (commandline --line)
+    set -l updated_buf (__rust::keybinds::shuffle_RUST_BACKTRACE_impl $buf --linenum $line)
     commandline --replace $updated_buf
     commandline --function repaint
 end
 
 begin
     # set -l mode rust
-    # bind --mode=$mode \eb __rust.fish::keybinds::shuffle_RUST_BACKTRACE
-    bind \eb __rust.fish::keybinds::shuffle_RUST_BACKTRACE
+    # bind --mode=$mode \eb __rust::keybinds::shuffle_RUST_BACKTRACE
+    bind \eb __rust::keybinds::shuffle_RUST_BACKTRACE
 end

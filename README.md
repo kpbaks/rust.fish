@@ -46,6 +46,11 @@ abbr -a rfmt rustfmt --edition=$rust_edition
 abbr -a rfmtc rustfmt --edition=$rust_edition --check
 ```
 
+## Keybinds
+
+### <kbd>alt-b<kdb\> Shuffle between `RUST_BACKTRACE={0,1,full}`
+
+
 ## Functions
 
 ### `cargo-search`
@@ -59,6 +64,11 @@ or if some of them can be updated to a newer version.
 
 ![image](https://github.com/kpbaks/rust.fish/assets/57013304/0d29e9de-59f6-441e-b84b-980515a992e0)
 
+### `rust-smells`
+
+A wrapper around `rg` ...
+
+**TODO** explain what it does and insert a screenshot
 
 ## Completions
 
