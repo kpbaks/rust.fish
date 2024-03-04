@@ -166,15 +166,19 @@ function __rust::abbr::in_cargo_project
 end
 
 function __rust::abbr::env_var_overrides
+    # TODO: what about CARGO_INCREMENTAL
     # TODO: what about RUSTFLAGS https://github.com/rust-lang/portable-simd/blob/master/beginners-guide.md#selecting-additional-target-features
     set -l env_var_overrides
     set -l buffer (commandline)
 
-    command --query mold
-    and not set --query --export RUSTFLAGS
-    and not string match --regex --quiet "RUSTFLAGS=\w+" -- $buffer
-    # or set --append env_var_overrides (printf "RUSTFLAGS='-C link-arg=-fuse-ld=%s'" (command --search mold))
-    and set --append env_var_overrides (printf "RUSTFLAGS='-C link-arg=-fuse-ld=%s'" mold)
+    # TODO: add
+    # COLORBT_SHOW_HIDDEN=1
+
+    # command --query mold
+    # and not set --query --export RUSTFLAGS
+    # and not string match --regex --quiet "RUSTFLAGS=\w+" -- $buffer
+    # # or set --append env_var_overrides (printf "RUSTFLAGS='-C link-arg=-fuse-ld=%s'" (command --search mold))
+    # and set --append env_var_overrides (printf "RUSTFLAGS='-C link-arg=-fuse-ld=%s'" mold)
 
     if not string match --regex --quiet "RUST_LOG=\w+" -- $buffer
         # commandline does not contain RUST_LOG as a temporary env var override
@@ -186,6 +190,13 @@ function __rust::abbr::env_var_overrides
     end
 
     printf "%s\n" $env_var_overrides
+end
+
+function __rust::abbr::gen_env_var_overrides
+    # set -l overrides (__rust::abbr::env_var_overrides)
+    __rust::abbr::env_var_overrides | while read -d = var value
+        printf 'set -lx %s %s\n' $var $value
+    end
 end
 
 function __rust::abbr::bin_postfix
@@ -276,6 +287,8 @@ function __rust::abbr::cargo_new -a crate_type
     set -l vcs git
     set -l edition (__rust::get_rust_edition)
 
+    # TODO: if already in a cargo project, then do not add --vcs flag, as the user is most likely in a cargo workspace
+
     echo "set -l name %"
     echo "cargo new --vcs=$vcs --edition=$edition $crate_type \$name"
     echo "cd \$name"
@@ -295,7 +308,9 @@ abbr -a cgnl -f __rust::abbr::cargo_new_lib --set-cursor
 function abbr_cargo_run
     __rust::abbr::in_cargo_project
     __rust::abbr::gen_jobs
-    printf "%s cargo run --jobs=\$jobs" (string join " " -- (__rust::abbr::env_var_overrides))
+    __rust::abbr::gen_env_var_overrides
+    # printf "%s cargo run --jobs=\$jobs" (string join " " -- (__rust::abbr::env_var_overrides))
+    printf "cargo run --jobs=\$jobs"
 end
 abbr -a cgr --function abbr_cargo_run
 

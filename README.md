@@ -75,3 +75,11 @@ A wrapper around `rg` ...
 `cargo add` and `cargo search` have been enhanced such that they complete the crate names from crates.io.
 
 ![image](https://github.com/kpbaks/rust.fish/assets/57013304/d31e767b-0624-4099-b372-e21f531693ff)
+
+
+## Settings
+
+| Variable | Description | Default Value | Constraint |
+|----------|-------------|---------|------------|
+| `rust_fish_default_rust_backtrace_level` | The default value of [`RUST_BACKTRACE`](https://doc.rust-lang.org/std/backtrace/index.html#environment-variables) set with abbreviations like `cgb`  | 0 | one of: `0`, `1` or `full` |
+| `rust_fish_default_rust_log_level` | The default value of [`RUST_LOG`](https://docs.rs/env_logger/latest/env_logger/) set with abbreviations like `cgr` | `info` | one of: `off`, `trace`, `debug`, `info`, `warn` or `error` |
