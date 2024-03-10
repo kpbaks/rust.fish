@@ -435,6 +435,9 @@ abbr -a rupr rustup run # toolchain
 abbr -a bc bacon # sorry `/usr/bin/bc`
 abbr -a bct bacon test
 
+abbr -a rpg rust-playground --edition=$rust_edition
+abbr -a rpgl rust-playground --edition=$rust_edition --lib
+
 # completions
 set -l c complete -c cargo
 
