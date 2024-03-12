@@ -101,17 +101,20 @@ function rust-playground -d 'open rust playground (https://play.rust-lang.org) w
     end
 
     if set --query _flag_prelude
+        set -a lines "#![allow(dead_code, unused_imports)]"
         set -a lines "use std::cell::RefCell;"
         set -a lines "use std::collections::{VecDeque, HashMap, HashSet};"
         set -a lines "use std::rc::Rc;"
         set -a lines "use std::sync::{Arc, Mutex, RwLock};"
         set -a lines ""
-        set -a lines "use regex::Regex;"
+        set -a lines "// use regex::Regex;"
         set -a lines ""
     end
 
     if set --query _flag_main
         set -a lines "fn main() -> anyhow::Result<()> {"
+        set -a lines ""
+        set -a lines ""
         set -a lines "    Ok(())"
         set -a lines "}"
     end
@@ -148,6 +151,7 @@ function rust-playground -d 'open rust playground (https://play.rust-lang.org) w
 
     set -l url_encoded_code
 
+    # TODO; handle the rest
     for line in $lines
         for char in (string split '' $line)
             switch $char
