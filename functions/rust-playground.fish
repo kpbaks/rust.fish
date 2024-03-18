@@ -101,7 +101,7 @@ function rust-playground -d 'open rust playground (https://play.rust-lang.org) w
     end
 
     if set --query _flag_prelude
-        set -a lines "#![allow(dead_code, unused_imports)]"
+        set -a lines "#![allow(dead_code, unused_imports, unused_variables)]"
         set -a lines "use std::cell::RefCell;"
         set -a lines "use std::collections::{VecDeque, BTreeMap, BTreeSet, HashMap, HashSet};"
         set -a lines "use std::rc::Rc;"
