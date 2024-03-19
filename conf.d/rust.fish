@@ -269,7 +269,6 @@ end
 
 abbr -a cgmt --set-cursor --function __rust::abbr::cargo_metadata
 
-
 function __rust::abbr::cargo_new -a crate_type
     if test (count $argv) -eq 0
         printf "%s <(--)?(bin|lib)>\n" (status function)
@@ -284,13 +283,16 @@ function __rust::abbr::cargo_new -a crate_type
         set crate_type "--$crate_type"
     end
 
-    set -l vcs git
     set -l edition (__rust::get_rust_edition)
-
+    set -l cargo_new_flags --edition=$edition
     # TODO: if already in a cargo project, then do not add --vcs flag, as the user is most likely in a cargo workspace
+    if not __rust::cargo::inside_crate_subtree
+        set -a cargo_new_flags --vcs=git
+    end
 
     echo "set -l name %"
-    echo "cargo new --vcs=$vcs --edition=$edition $crate_type \$name"
+    # echo "cargo new --vcs=$vcs --edition=$edition $crate_type \$name"
+    echo "cargo new $cargo_new_flags $crate_type \$name"
     echo "cd \$name"
 end
 
