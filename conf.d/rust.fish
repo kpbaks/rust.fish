@@ -285,8 +285,9 @@ function __rust::abbr::cargo_new -a crate_type
 
     set -l edition (__rust::get_rust_edition)
     set -l cargo_new_flags --edition=$edition
-    # TODO: if already in a cargo project, then do not add --vcs flag, as the user is most likely in a cargo workspace
-    if not __rust::cargo::inside_crate_subtree
+    if __rust::cargo::inside_crate_subtree
+        echo '# looks like you  in a cargo project, not adding --vcs=git'
+    else
         set -a cargo_new_flags --vcs=git
     end
 
