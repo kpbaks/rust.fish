@@ -1,7 +1,7 @@
 function docs.rs -d ''
     # TODO: implement --no-nested-deps
 
-    set -l options h/help n/no-nested-deps
+    set -l options h/help n/no-nested-deps N-no-builtins
     if not argparse $options -- $argv
         printf '\n'
         eval (status function) --help
@@ -51,7 +51,7 @@ function docs.rs -d ''
 
     # 1. see if we are in a cargo project/workspace
     # - if not, then error and exit
-    set cargo_manifest (cargo locate-project --message-format plain --workspace)
+    set -l cargo_manifest (cargo locate-project --message-format plain --workspace)
     if test $status != 0
         return 2
     end
@@ -60,9 +60,14 @@ function docs.rs -d ''
     set -l gum_args --no-limit --match.foreground=$ferris_color --indicator.foreground=$ferris_color --selected-indicator.foreground=$ferris_color \
         --header="select which crate(s) to open at https://docs.rs/<crate>" --header.foreground=$ferris_color
 
-    set -l crates std core alloc proc_macro test # comes with the rust toolchain
-    set -a crates (cargo metadata --manifest-path $cargo_manifest --format-version 1 | $jq_program -r '.packages[].name')
+    set -l crates
+    if not set --query _flag_no_builtins
+        set -a crates std core alloc proc_macro test # comes with the rust toolchain
+    end
 
+    set -a crates (cargo metadata --manifest-path $cargo_manifest --format-version 1 | $jq_program -r '.packages[] | "\(.name) \(.version)"')
+
+    # TODO: use fzf with --ansi and color each version
     set -l selected_crates (printf '%s\n' $crates | gum filter $gum_args)
 
     if test (count $selected_crates) -eq 0
@@ -71,9 +76,14 @@ function docs.rs -d ''
     end
 
     printf 'opening: %s\n' (string repeat --count (count $selected_crates) 🦀)
-    for crate in $selected_crates
-        open "https://docs.rs/$crate"
-        printf ' - https://docs.rs/%s%s%s\n' (set_color $ferris_color) $crate $reset
+
+    for selection in $selected_crates
+        string match --regex --groups-only '^(\S+)\s+(\S+)' $selection | read --line crate crate_version
+        # https://docs.rs/ab_glyph_rasterizer/0.1.7/ab_glyph_rasterizer/index.html
+        set -l url "https://docs.rs/$crate/$crate_version/$crate"
+        open $url
+
+        printf ' - https://docs.rs/%s%s%s/%s%s%s\n' (set_color $ferris_color) $crate $reset (set_color blue) $crate_version $reset
     end
 
 
