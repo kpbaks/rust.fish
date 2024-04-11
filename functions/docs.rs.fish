@@ -56,19 +56,14 @@ function docs.rs -d ''
         return 2
     end
 
-    # block --local
-
-    # pushd (path dirname $cargo_manifest)
-
     set -l ferris_color '#DE4400'
     set -l gum_args --no-limit --match.foreground=$ferris_color --indicator.foreground=$ferris_color --selected-indicator.foreground=$ferris_color \
         --header="select which crate(s) to open at https://docs.rs/<crate>" --header.foreground=$ferris_color
 
-    set -l selected_crates (
-        cargo metadata --manifest-path $cargo_manifest --format-version 1 \
-            | $jq_program -r '.packages[].name' \
-            | gum filter $gum_args
-    )
+    set -l crates std core alloc proc_macro test # comes with the rust toolchain
+    set -a crates (cargo metadata --manifest-path $cargo_manifest --format-version 1 | $jq_program -r '.packages[].name')
+
+    set -l selected_crates (printf '%s\n' $crates | gum filter $gum_args)
 
     if test (count $selected_crates) -eq 0
         printf 'no crates selected 😓\n'
