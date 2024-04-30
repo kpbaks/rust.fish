@@ -1,5 +1,8 @@
 # TODO: integrate sccache somehow
 
+# list workspace crates
+# cargo metadata --no-deps --format-version 1 | jaq -r '.packages[].name'
+
 function __rust::on::install --on-event rust_install
     # Set universal variables, create bindings, and other initialization logic.
 end
@@ -155,8 +158,13 @@ function __rust::abbr::list -d "list all abbreviations in rust.fish"
     string match --regex "^abbr -a.*" <(status filename) | fish_indent --ansi
 end
 
+
 function __rust::abbr::gen_jobs
-    printf "set -l jobs (math (nproc) - 1) # leave one CPU core for interactivity\n"
+    if set -q rust_fish_jobs
+        printf 'set -l jobs %s # \$rust_fish_jobs\n' $rust_fish_jobs
+    else
+        printf "set -l jobs (math (nproc) - 1) # leave one CPU core for interactivity\n"
+    end
 end
 
 function __rust::abbr::in_cargo_project
@@ -226,8 +234,10 @@ abbr -a cg cargo
 abbr -a cga cargo add
 abbr -a cgad cargo add --dev
 abbr -a cgab cargo add --build
-abbr -a cgb cargo build --jobs "(math (nproc) - 1)"
-abbr -a cgbr cargo build --jobs "(math (nproc) - 1)" --release
+# abbr -a cgb cargo build --jobs "(math (nproc) - 1)"
+abbr -a cgb cargo build --jobs $rust_fish_jobs
+# abbr -a cgbr cargo build --jobs "(math (nproc) - 1)" --profile=release
+abbr -a cgbr cargo build --jobs $rust_fish_jobs --profile=release
 abbr -a cgc cargo check
 abbr -a cgd cargo doc --open
 function __rust::abbr::cargo_install
@@ -312,7 +322,6 @@ function abbr_cargo_run
     __rust::abbr::in_cargo_project
     __rust::abbr::gen_jobs
     __rust::abbr::gen_env_var_overrides
-    # printf "%s cargo run --jobs=\$jobs" (string join " " -- (__rust::abbr::env_var_overrides))
     printf "cargo run --jobs=\$jobs"
 end
 abbr -a cgr --function abbr_cargo_run
@@ -369,27 +378,7 @@ abbr -a cgt -f __rust::abbr::cargo_test
 abbr -a cgtd cargo test --doc
 
 abbr -a cgu cargo update
-# function abbr_cargo_update_package
-#     printf "cargo update --package %%\n"
-#     if test -f Cargo.toml
-#         # TODO: what if you do not have taplo?
-#         set -l dependencies (command taplo get ".dependencies" --output-format toml < Cargo.toml)
-#         set -l dev_dependencies (command taplo get ".dev-dependencies" --output-format toml < Cargo.toml)
-#         # TODO: align by "="
-#         if test (count $dependencies) -gt 0
-#             # TODO: handle case where crate is of the form: "<name> = { version = <version> ... }"
-#             printf "# dependencies:\n"
-#             printf "# - %s\n" $dependencies
-#         end
-#         if test (count $dev_dependencies) -gt 0
-#             printf "#\n"
-#             printf "# dev-dependencies:\n"
-#             printf "# - %s\n" $dev_dependencies
-#         end
-#     end
-# end
 abbr -a cgup cargo update --package
-# abbr -a cgup --set-cursor --function abbr_cargo_update_package
 abbr -a cgud cargo update --dry-run
 
 # cargo thirdparty subcommands
@@ -420,6 +409,39 @@ set -a cargo_watch_flags --notify # send desktop notification when watchexec not
 abbr -a cgwc cargo watch $cargo_watch_flags --exec check
 abbr -a cgwt cargo watch $cargo_watch_flags --exec test
 
+function __rust::abbr::cargo_flamegraph
+    if not command -q cargo-flamegraph
+        echo "# error: `cargo-flamegraph` (https://github.com/flamegraph-rs/flamegraph) not installed"
+        echo "%"
+        return
+    end
+
+    test -d flamegraphs
+    or echo "mkdir flamegraphs"
+
+    set -l now (date +%s)
+    set -l f flamegraphs/flamegraph_$now.svg
+
+    # TODO: check if there is a `flamegraph` profile
+    set -l profile release
+    # set -l flamegraph_args --deterministic --inverted --palette=rust --flamechart -o $f
+
+    # aqua, blue, green, hot, io, java, js, mem, orange, perl, python, purple, red, rust, wakeup, yellow
+    set -l flamegraph_args --palette=hot
+    set -a flamegraph_args --deterministic
+    set -a flamegraph_args --inverted
+    set -a flamegraph_args --image-width=0.01 # omit functions smaller that <FLOAT> pixels
+
+    # set -a flamegraph_args --flamechart
+    set -a flamegraph_args -o $f
+    echo "set -l flamegraph_args $flamegraph_args"
+
+    echo "cargo flamegraph \$flamegraph_args --profile=$profile %"
+end
+
+abbr -a cgfg --set-cursor -f __rust::abbr::cargo_flamegraph
+# abbr -a cgfgd --set-cursor -f __rust::abbr::cargo_flamegraph_dev
+
 # rustfmt
 abbr -a rfmt rustfmt --edition=$rust_edition
 abbr -a rfmtc rustfmt --edition=$rust_edition --check
@@ -438,8 +460,12 @@ abbr -a rupr rustup run # toolchain
 abbr -a bc bacon # sorry `/usr/bin/bc`
 abbr -a bct bacon test
 
+# functions from this plugin rust.fish
 abbr -a rpg rust-playground --edition=$rust_edition
 abbr -a rpgl rust-playground --edition=$rust_edition --lib
+abbr -a rsl rust-logs
+abbr -a rss rust-smells
+abbr -a rsp rust-prints
 
 # completions
 set -l c complete -c cargo
@@ -466,6 +492,7 @@ function __complete_crates.io
     end
 end
 
+# FIXME: do not override normal completions for these subcommands
 complete -c cargo -n "__fish_seen_subcommand_from add" -a "(__complete_crates.io)"
 complete -c cargo -n "__fish_seen_subcommand_from search" -a "(__complete_crates.io)"
 
@@ -609,4 +636,27 @@ begin
     # set -l mode rust
     # bind --mode=$mode \eb __rust::keybinds::shuffle_RUST_BACKTRACE
     bind \eb __rust::keybinds::shuffle_RUST_BACKTRACE
+end
+
+
+# events
+
+# TODO: document in readme
+# TODO: come up with a useful example
+function __rust::events::enter-cargo-project --on-variable PWD
+    test -f Cargo.toml; or return 0
+
+    # TODO: finish this
+    set --query __rust_last_visited_cargo_project
+    or set --global __rust_last_visited_cargo_project $PWD
+
+    set -l cargo_manifest (cargo locate-project --message-format plain --workspace)
+    emit rust_enter_cargo_project $cargo_manifest
+end
+
+function __rust::on::enter-cargo-project --on-event rust_enter_cargo_project
+    test -f flake.nix; and return 0
+    command --query nix; or return 0
+
+    printf 'you have nix installed, but this cargo project has no flake.nix!\n'
 end
