@@ -429,8 +429,8 @@ function __rust::abbr::cargo_flamegraph
     # aqua, blue, green, hot, io, java, js, mem, orange, perl, python, purple, red, rust, wakeup, yellow
     set -l flamegraph_args --palette=hot
     set -a flamegraph_args --deterministic
-    set -a flamegraph_args --inverted
-    set -a flamegraph_args --image-width=0.01 # omit functions smaller that <FLOAT> pixels
+    # set -a flamegraph_args --inverted
+    set -a flamegraph_args --min-width=0.01 # omit functions smaller that <FLOAT> pixels
 
     # set -a flamegraph_args --flamechart
     set -a flamegraph_args -o $f
