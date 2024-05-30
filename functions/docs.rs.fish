@@ -58,7 +58,7 @@ function docs.rs -d ''
 
     set -l ferris_color '#DE4400'
     set -l gum_args --no-limit --match.foreground=$ferris_color --indicator.foreground=$ferris_color --selected-indicator.foreground=$ferris_color \
-        --header="select which crate(s) to open at https://docs.rs/<crate>" --header.foreground=$ferris_color
+        --header="select which crate(s) to open at https://docs.rs/<crate>/<version>" --header.foreground=$ferris_color
 
     set -l crates
     if not set --query _flag_no_builtins

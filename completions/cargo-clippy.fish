@@ -1,6 +1,7 @@
 set -l c complete -c cargo-clippy
 $c -f # Disable file completion
 
+
 function __complete_clippy_lints
     # TODO:
     # cargo clippy --explain LINT

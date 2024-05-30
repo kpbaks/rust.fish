@@ -1,4 +1,4 @@
-function rust-smells -d "Search for rust smells e.g. todo!(), .unwrap() in the current directory with rg"
+function rust-smells -d "Search for rust smells e.g. `todo!()`, `.unwrap()` in the current directory with rg"
 
     # TODO: allow the user to pass options to rg by using that argparse will ignore options after --, e.g. rust-smells -- -t rs
     # TODO: add options to filter which smells to search for
@@ -110,6 +110,7 @@ function rust-smells -d "Search for rust smells e.g. todo!(), .unwrap() in the c
     # style oneof {no,}bold {no,}underline {no,}intense
     set -l rg_args \
         --pcre2 \
+        --glob="'*.rs'" \
         --after-context=$after_context \
         --before-context=$before_context \
         --type=rust \
@@ -195,7 +196,7 @@ function rust-smells -d "Search for rust smells e.g. todo!(), .unwrap() in the c
             printf "Found %s%d%s matches for regular expression %s'%s'%s in %s%s%s 😎\n" $green $n_matches $reset $green $regexp $reset (set_color --bold --italics) $PWD $reset
         end
         if test $status -ne 0
-            printf "No matches for regular expression %s'%s'%s in %s%s%s 😎\n" $green $regexp $reset (set_color --bold --italics) $PWD $reset
+            printf "no matches for regular expression %s'%s'%s in %s%s%s ¯\_(ツ)_/¯\n" $green $regexp $reset (set_color --bold --italics) $PWD $reset
         end
     end
 end

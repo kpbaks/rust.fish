@@ -235,9 +235,9 @@ abbr -a cga cargo add
 abbr -a cgad cargo add --dev
 abbr -a cgab cargo add --build
 # abbr -a cgb cargo build --jobs "(math (nproc) - 1)"
-abbr -a cgb cargo build --jobs $rust_fish_jobs
+abbr -a cgb cargo build --jobs '(math (nproc) - 2)'
 # abbr -a cgbr cargo build --jobs "(math (nproc) - 1)" --profile=release
-abbr -a cgbr cargo build --jobs $rust_fish_jobs --profile=release
+abbr -a cgbr cargo build --jobs '(math (nproc) - 2)' --profile=release
 abbr -a cgc cargo check
 abbr -a cgd cargo doc --open
 function __rust::abbr::cargo_install
